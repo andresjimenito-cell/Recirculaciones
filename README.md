@@ -24,7 +24,7 @@ Modelo en Python (solo biblioteca estándar):
 ```bash
 python3 modelo/recirculacion.py                 # comparación de configuraciones
 python3 -c "import sys; sys.path.insert(0,'modelo'); from recirculacion import simular; \
-r = simular(config='sumidero', recirc='dedicada', orif_d=0.75, J=0.3); \
+r = simular(config='sumidero', recirc='dedicada', J=0.3); \
 print(r['qp_bpd'], r['qr_bpd'], r['v_motor_fts'], r['T_wind_F'])"
 ```
 
