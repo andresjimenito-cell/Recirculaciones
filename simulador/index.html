@@ -1,0 +1,1036 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Simulador de Recirculación BES</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: banco de trabajo de ingeniería en tres columnas: controles | esquema del pozo | resultados */
+:root {
+  --bg: #eef1f3;
+  --panel: #fbfcfc;
+  --ink: #15212b;
+  --ink-2: #4a5866;
+  --muted: #7b8894;
+  --line: #d5dce1;
+  --grid: #e3e8eb;
+  --accent: #0f6680;
+  --accent-soft: #d9ebf0;
+  --steel: #8a98a4;
+  --steel-2: #b8c3cb;
+  --earth: #e4ddd2;
+  --perf: #b4532a;
+  --s1: #2a78d6;
+  --s2: #eb6834;
+  --s3: #1baf7a;
+  --ok: #0ca30c;
+  --ok-ink: #006300;
+  --warn: #fab219;
+  --warn-ink: #8a5a00;
+  --crit: #d03b3b;
+  --crit-ink: #b02a2a;
+  --t-cold: #8fb0c8;
+  --t-mid: #eb8a34;
+  --t-hot: #c62f2f;
+  --font-display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1519; --panel: #161e24; --ink: #e5ecf1; --ink-2: #b3c0ca; --muted: #8392a0;
+    --line: #2a353e; --grid: #222c34; --accent: #4fb3cf; --accent-soft: #1b3440;
+    --steel: #6c7a86; --steel-2: #44515c; --earth: #2a2620; --perf: #d6774d;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70;
+    --ok: #0ca30c; --ok-ink: #3fcf3f; --warn: #fab219; --warn-ink: #fab219; --crit: #e05353; --crit-ink: #ff8080;
+    --t-cold: #5d84a3; --t-mid: #e0802b; --t-hot: #ff4d4d;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1519; --panel: #161e24; --ink: #e5ecf1; --ink-2: #b3c0ca; --muted: #8392a0;
+  --line: #2a353e; --grid: #222c34; --accent: #4fb3cf; --accent-soft: #1b3440;
+  --steel: #6c7a86; --steel-2: #44515c; --earth: #2a2620; --perf: #d6774d;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70;
+  --ok: #0ca30c; --ok-ink: #3fcf3f; --warn: #fab219; --warn-ink: #fab219; --crit: #e05353; --crit-ink: #ff8080;
+  --t-cold: #5d84a3; --t-mid: #e0802b; --t-hot: #ff4d4d;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--font-body); font-size: 14px; line-height: 1.45;
+  padding-inline: 16px; padding-block: 0 32px;
+}
+h1, h2, h3 { font-family: var(--font-display); font-weight: 600; letter-spacing: 0.01em; text-wrap: balance; margin: 0; }
+h1 { font-size: 30px; line-height: 1.05; }
+h2 { font-size: 19px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-2); }
+h3 { font-size: 16px; }
+button, select, input { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.top {
+  display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 24px;
+  padding-block: 18px 14px; border-bottom: 1px solid var(--line); margin-bottom: 16px;
+}
+.title p { margin: 4px 0 0; color: var(--ink-2); max-width: 70ch; }
+.eyebrow { font-family: var(--font-data); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+.simbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.btn {
+  border: 1px solid var(--line); background: var(--panel); border-radius: 6px; padding: 6px 12px;
+  cursor: pointer; font-weight: 500;
+}
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--panel); }
+.clock { font-family: var(--font-data); font-size: 13px; color: var(--ink-2); min-width: 9ch; font-variant-numeric: tabular-nums; }
+select { border: 1px solid var(--line); background: var(--panel); border-radius: 6px; padding: 5px 8px; }
+
+.presets { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+.presets span { font-family: var(--font-data); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); align-self: center; margin-right: 4px; }
+.chip {
+  border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 4px 12px;
+  cursor: pointer; font-size: 13px;
+}
+.chip:hover { border-color: var(--accent); }
+.chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--ink); }
+
+.grid {
+  display: grid; gap: 16px;
+  grid-template-columns: minmax(250px, 300px) minmax(320px, 470px) minmax(0, 1fr);
+  align-items: start;
+}
+@media (max-width: 1180px) { .grid { grid-template-columns: minmax(250px, 300px) minmax(0, 1fr); } .results { grid-column: 1 / -1; } }
+@media (max-width: 720px) { .grid { grid-template-columns: minmax(0, 1fr); } .results { grid-column: auto; } }
+
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; min-width: 0; }
+.controls { padding: 6px 0; }
+.controls details { border-bottom: 1px solid var(--line); }
+.controls details:last-child { border-bottom: 0; }
+.controls summary {
+  cursor: pointer; padding: 10px 14px; font-family: var(--font-display); font-size: 15px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-2); list-style: none;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.controls summary::-webkit-details-marker { display: none; }
+.controls summary::after { content: "+"; font-family: var(--font-data); color: var(--muted); }
+.controls details[open] summary::after { content: "−"; }
+.fields { display: grid; gap: 10px; padding: 2px 14px 14px; }
+.field label { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; color: var(--ink-2); }
+.field output { font-family: var(--font-data); font-size: 12.5px; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.field input[type=range] { width: 100%; accent-color: var(--accent); margin: 4px 0 0; }
+.field select { width: 100%; margin-top: 4px; }
+.hint { font-size: 12px; color: var(--muted); margin: 0; }
+
+.well { padding: 10px; position: relative; }
+.well canvas { display: block; width: 100%; height: 760px; }
+.scale { display: flex; align-items: center; gap: 8px; padding: 8px 6px 2px; font-family: var(--font-data); font-size: 11.5px; color: var(--ink-2); }
+.scale .bar { flex: 1; height: 8px; border-radius: 4px; background: linear-gradient(90deg, var(--t-cold), var(--t-mid), var(--t-hot)); }
+.legend-row { display: flex; flex-wrap: wrap; gap: 6px 14px; padding: 6px 6px 0; font-size: 12px; color: var(--ink-2); }
+.legend-row i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
+
+.results { display: grid; gap: 16px; min-width: 0; }
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+@media (max-width: 560px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.kpi { background: var(--panel); padding: 10px 12px 11px; display: grid; gap: 2px; align-content: start; }
+.kpi .k { font-size: 12px; color: var(--ink-2); }
+.kpi .v { font-family: var(--font-data); font-size: 21px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.kpi .v small { font-size: 12px; color: var(--muted); font-weight: 400; margin-left: 3px; }
+.kpi .s { font-size: 11.5px; color: var(--muted); }
+.pill { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; border-radius: 999px; padding: 1px 8px 1px 6px; width: max-content; }
+.pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.pill.ok { color: var(--ok-ink); background: color-mix(in srgb, var(--ok) 14%, transparent); }
+.pill.aviso { color: var(--warn-ink); background: color-mix(in srgb, var(--warn) 18%, transparent); }
+.pill.critico { color: var(--crit-ink); background: color-mix(in srgb, var(--crit) 14%, transparent); }
+
+.box { padding: 14px 16px; }
+.box h2 { margin-bottom: 8px; }
+.alerts { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.alerts li { display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: baseline; font-size: 13.5px; }
+.lectura p { margin: 0 0 8px; max-width: 75ch; }
+.lectura p:last-child { margin-bottom: 0; }
+.lectura b { font-family: var(--font-data); font-weight: 500; font-size: 13px; }
+
+.charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 16px; }
+.chart { padding: 12px 14px 10px; position: relative; min-width: 0; }
+.chart header { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+.chart h3 { font-size: 16px; }
+.chart .sub { font-size: 12px; color: var(--muted); }
+.chart canvas { display: block; width: 100%; height: 230px; }
+.chart .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--ink-2); margin-top: 2px; }
+.chart .legend i { display: inline-block; width: 14px; height: 2px; margin-right: 6px; vertical-align: 3px; }
+.tip {
+  position: absolute; pointer-events: none; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 6px; padding: 6px 8px; font-size: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+  font-family: var(--font-data); white-space: nowrap; z-index: 5;
+}
+
+.ecuaciones { margin-top: 16px; }
+.eqgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 400px), 1fr)); gap: 16px; }
+.eq { padding: 14px 16px; min-width: 0; }
+.eq h3 { margin-bottom: 6px; }
+.eq p { margin: 0 0 8px; color: var(--ink-2); font-size: 13px; }
+.formula { font-family: Georgia, "Times New Roman", serif; font-style: italic; font-size: 16px; line-height: 1.6; padding: 8px 10px; background: var(--bg); border-radius: 6px; overflow-wrap: anywhere; }
+.formula + .formula { margin-top: 6px; }
+.sust { font-family: var(--font-data); font-size: 12.5px; color: var(--ink); margin-top: 8px; overflow-wrap: anywhere; }
+.notas { margin-top: 16px; padding: 14px 16px; font-size: 13px; color: var(--ink-2); }
+.notas ul { margin: 6px 0 0; padding-left: 18px; max-width: 110ch; }
+.notas li { margin-bottom: 4px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="title">
+    <div class="eyebrow">Levantamiento artificial · BES</div>
+    <h1>Simulador de recirculación BES</h1>
+    <p>Pozo con bomba electrosumergible y sistema de recirculación. Cambia la configuración y los parámetros; el esquema, el balance térmico y la curva de la bomba se recalculan al instante.</p>
+  </div>
+  <div class="simbar" aria-label="Control del tiempo simulado">
+    <button class="btn primary" id="play" type="button">Pausar</button>
+    <label for="speed" class="hint">Velocidad</label>
+    <select id="speed">
+      <option value="60">1 s = 1 min</option>
+      <option value="600" selected>1 s = 10 min</option>
+      <option value="3600">1 s = 1 h</option>
+    </select>
+    <button class="btn" id="arranque" type="button" title="Reinicia las temperaturas a la del yacimiento">Arranque en frío</button>
+    <span class="clock" id="clock">t = 0:00 h</span>
+  </div>
+</header>
+
+<nav class="presets" id="presets" aria-label="Escenarios"><span>Escenarios</span></nav>
+
+<main class="grid">
+  <aside class="panel controls" id="controls" aria-label="Parámetros"></aside>
+
+  <section class="panel well" aria-label="Esquema del pozo">
+    <canvas id="pozo" role="img" aria-label="Esquema animado del pozo con el equipo BES y el flujo de recirculación"></canvas>
+    <div class="scale"><span id="tmin">200 °F</span><div class="bar"></div><span id="tmax">400 °F</span></div>
+    <div class="legend-row">
+      <span><i style="background:var(--t-mid)"></i>Partícula de líquido, color = temperatura</span>
+      <span><i style="background:var(--panel);border:1.5px solid var(--ink-2)"></i>Burbuja de gas libre</span>
+    </div>
+  </section>
+
+  <section class="results">
+    <div class="kpis" id="kpis"></div>
+    <div class="panel box"><h2>Alertas</h2><ul class="alerts" id="alerts"></ul></div>
+    <div class="panel box lectura"><h2>Lectura del resultado</h2><div id="lectura"></div></div>
+    <div class="charts">
+      <div class="panel chart">
+        <header><h3>Curva de la bomba</h3><span class="sub">altura vs caudal por la bomba</span></header>
+        <canvas id="cBomba"></canvas>
+        <div class="legend"><span><i style="background:var(--s1)"></i>Bomba a la frecuencia actual</span><span><i style="background:var(--s2)"></i>Altura requerida por el sistema</span><span><i style="background:var(--ok);opacity:.4;height:8px"></i>Rango recomendado</span></div>
+      </div>
+      <div class="panel chart">
+        <header><h3>Tendencia térmica</h3><span class="sub">tiempo simulado</span></header>
+        <canvas id="cTend"></canvas>
+        <div class="legend"><span><i style="background:var(--s1)"></i>Devanado del motor</span><span><i style="background:var(--s2)"></i>Admisión de la bomba</span></div>
+      </div>
+      <div class="panel chart">
+        <header><h3>Perfil térmico del lazo</h3><span class="sub">temperatura del fluido nodo a nodo</span></header>
+        <canvas id="cPerfil"></canvas>
+      </div>
+      <div class="panel chart">
+        <header>
+          <h3 id="sensTitle">Sensibilidad al orificio</h3>
+          <select id="sensMetric" aria-label="Variable de la sensibilidad">
+            <option value="T_wind_F">Temperatura de devanado</option>
+            <option value="qp_bpd">Producción</option>
+            <option value="v_motor_fts">Velocidad en el motor</option>
+            <option value="T_in_F">Temperatura de admisión</option>
+            <option value="x">Q / Q_BEP</option>
+          </select>
+        </header>
+        <canvas id="cSens"></canvas>
+        <div class="legend"><span><i style="background:var(--s1)"></i><span id="sensLegend">Temperatura de devanado</span></span><span><i style="background:var(--ink-2);height:8px;width:8px;border-radius:50%"></i>Valor actual</span></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<section class="ecuaciones" aria-label="Ecuaciones del modelo con los valores actuales">
+  <h2 style="margin:22px 0 10px">Ecuaciones con los valores actuales</h2>
+  <div class="eqgrid" id="eqgrid"></div>
+</section>
+
+<section class="panel notas">
+  <h2>Supuestos del modelo</h2>
+  <ul>
+    <li>Estado estacionario hidráulico; la térmica evoluciona con constantes de tiempo de primer orden (masa del motor y volumen de pozo alrededor del equipo).</li>
+    <li>Curva de etapa genérica H/H₀ = 1 − 0.05x − 0.25x², η = η<sub>BEP</sub>·x(2 − x), leyes de afinidad con la frecuencia. Sin corrección por viscosidad ni degradación por gas en la altura.</li>
+    <li>IPR: índice de productividad sobre P<sub>b</sub> y Vogel por debajo. P<sub>b</sub> y R<sub>s</sub> por Standing; viscosidad de crudo muerto por Beggs-Robinson; emulsión por Brinkman.</li>
+    <li>Línea de recirculación adiabática (conservador). Pérdida al pozo/formación concentrada en un coeficiente UA. Todo el trabajo entregado al fluido recirculado vuelve como calor al lazo.</li>
+    <li>Separación natural de gas E = v<sub>b</sub>/(v<sub>b</sub> + v<sub>l</sub>); φ es la fracción del gas recirculado que se vuelve a liberar en la admisión.</li>
+    <li>El esquema no está a escala. Modelo educativo y de pre-diseño: los resultados deben calibrarse con datos de campo y con las curvas reales del fabricante.</li>
+  </ul>
+</section>
+
+<div class="tip" id="tip" hidden></div>
+
+<script src="modelo.js"></script>
+<script>
+(function () {
+  'use strict';
+  const M = window.RecircModel;
+  const $ = (id) => document.getElementById(id);
+  const fmt = (v, d = 0) => (Number.isFinite(v) ? v.toLocaleString('es-CO', { minimumFractionDigits: d, maximumFractionDigits: d }) : '—');
+
+  // ---------------- Parámetros de la interfaz ----------------
+  const CASINGS = { '4.892': '5-1/2 in, 17 lb/ft (ID 4.892)', '6.276': '7 in, 26 lb/ft (ID 6.276)', '8.681': '9-5/8 in, 47 lb/ft (ID 8.681)' };
+  const MOTORS = { '3.75': 'Serie 375 (3.75 in)', '4.56': 'Serie 456 (4.56 in)', '5.40': 'Serie 540 (5.40 in)', '5.62': 'Serie 562 (5.62 in)', '7.38': 'Serie 738 (7.38 in)' };
+  const GROUPS = [
+    { id: 'conf', name: 'Configuración', open: true, fields: [
+      { k: 'config', type: 'select', label: 'Posición del equipo', opts: { sobre: 'Sobre perforados (convencional)', sumidero: 'Bajo perforados (sumidero)', camisa: 'Bajo perforados con camisa' } },
+      { k: 'recirc', type: 'select', label: 'Recirculación', opts: { ninguna: 'Sin recirculación', orificio: 'Derivación desde la descarga (orificio)', dedicada: 'Bomba de recirculación dedicada' } },
+      { k: 'freq', label: 'Frecuencia del variador', min: 35, max: 70, step: 0.5, u: 'Hz', d: 1 },
+      { k: 'orif_d', label: 'Diámetro del orificio', min: 0.06, max: 0.8, step: 0.01, u: 'in', d: 2 },
+    ] },
+    { id: 'yac', name: 'Yacimiento', open: true, fields: [
+      { k: 'Pr', label: 'Presión de yacimiento', min: 800, max: 4000, step: 50, u: 'psi' },
+      { k: 'J', label: 'Índice de productividad', min: 0.02, max: 2.5, step: 0.01, u: 'bpd/psi', d: 2 },
+      { k: 'T_res', label: 'Temperatura de yacimiento', min: 100, max: 320, step: 1, u: '°F' },
+      { k: 'GOR', label: 'Relación gas-aceite', min: 0, max: 1500, step: 10, u: 'scf/stb' },
+    ] },
+    { id: 'flu', name: 'Fluido', fields: [
+      { k: 'API', label: 'Gravedad del crudo', min: 8, max: 45, step: 0.5, u: '°API', d: 1 },
+      { k: 'WC', label: 'Corte de agua', min: 0, max: 0.99, step: 0.01, u: '%', scale: 100 },
+      { k: 'WC_inv', label: 'Punto de inversión de emulsión', min: 0.3, max: 0.8, step: 0.01, u: '%', scale: 100 },
+    ] },
+    { id: 'pozo', name: 'Pozo y equipo', fields: [
+      { k: 'casing_id', type: 'select', label: 'Revestimiento', opts: CASINGS },
+      { k: 'motor_od', type: 'select', label: 'Motor', opts: MOTORS },
+      { k: 'D_perf', label: 'Profundidad de perforados', min: 2000, max: 12000, step: 100, u: 'ft' },
+      { k: 'sep', label: 'Distancia admisión–perforados', min: 30, max: 1000, step: 10, u: 'ft' },
+      { k: 'P_wh', label: 'Presión en cabeza', min: 30, max: 600, step: 5, u: 'psi' },
+    ] },
+    { id: 'bomba', name: 'Bomba y motor', fields: [
+      { k: 'N_etapas', label: 'Etapas', min: 20, max: 400, step: 1, u: '' },
+      { k: 'Q_bep', label: 'Caudal BEP a 60 Hz', min: 200, max: 6000, step: 50, u: 'bpd' },
+      { k: 'H0', label: 'Altura de cierre por etapa a 60 Hz', min: 10, max: 80, step: 1, u: 'ft' },
+      { k: 'HP_nom', label: 'Potencia nominal del motor a 60 Hz', min: 20, max: 600, step: 5, u: 'hp' },
+      { k: 'motor_len', label: 'Longitud del motor', min: 8, max: 60, step: 1, u: 'ft' },
+      { k: 'T_lim', label: 'Límite térmico del aislamiento', min: 300, max: 550, step: 5, u: '°F' },
+    ] },
+    { id: 'rec', name: 'Línea de recirculación', fields: [
+      { k: 'rec_id', label: 'Diámetro interno de la línea', min: 0.5, max: 2.0, step: 0.05, u: 'in', d: 2 },
+      { k: 'rec_len', label: 'Longitud de la línea', min: 30, max: 300, step: 5, u: 'ft' },
+      { k: 'Nr_etapas', label: 'Etapas de la bomba dedicada', min: 1, max: 15, step: 1, u: '' },
+      { k: 'Qr_bep', label: 'Caudal BEP de la bomba dedicada', min: 200, max: 3000, step: 50, u: 'bpd' },
+    ] },
+    { id: 'term', name: 'Térmico y gas', fields: [
+      { k: 'UA', label: 'Pérdida de calor al pozo UA', min: 0, max: 600, step: 10, u: 'W/K' },
+      { k: 'v_nat', label: 'Convección natural equivalente', min: 0.002, max: 0.08, step: 0.001, u: 'ft/s', d: 3 },
+      { k: 'phi', label: 'Gas recirculado que se re-libera φ', min: 0, max: 1, step: 0.05, u: '', d: 2 },
+      { k: 'v_b', label: 'Velocidad de ascenso de burbuja', min: 0.2, max: 1.2, step: 0.05, u: 'ft/s', d: 2 },
+      { k: 'GVF_lim', label: 'GVF máximo del equipo', min: 0.05, max: 0.6, step: 0.01, u: '%', scale: 100 },
+    ] },
+  ];
+
+  const BASE = Object.assign({}, M.DEFAULTS, { sep: 200 });
+  const PRESETS = [
+    { id: 'p1', name: 'Sumidero sin enfriamiento', set: { config: 'sumidero', recirc: 'ninguna' } },
+    { id: 'p2', name: 'Sumidero + orificio', set: { config: 'sumidero', recirc: 'orificio', orif_d: 0.18 } },
+    { id: 'p3', name: 'Sumidero + bomba dedicada', set: { config: 'sumidero', recirc: 'dedicada', orif_d: 0.75 } },
+    { id: 'p4', name: 'Convencional sobre perforados', set: { config: 'sobre', recirc: 'ninguna' } },
+    { id: 'p5', name: 'Camisa (shroud)', set: { config: 'camisa', recirc: 'ninguna', motor_od: 4.56, HP_nom: 90, motor_len: 30 } },
+    { id: 'p6', name: 'Bajo aporte con orificio', set: { config: 'sumidero', recirc: 'orificio', orif_d: 0.18, J: 0.1 } },
+    { id: 'p7', name: 'Crudo pesado', set: { config: 'sobre', recirc: 'ninguna', API: 12, WC: 0.15, T_res: 150, GOR: 80 } },
+    { id: 'p8', name: 'Crudo pesado + bomba dedicada', set: { config: 'sumidero', recirc: 'dedicada', orif_d: 0.75, API: 12, WC: 0.15, T_res: 150, GOR: 80 } },
+  ];
+  let P = Object.assign({}, BASE, PRESETS[1].set);
+  let activePreset = 'p2';
+
+  function modelInput() {
+    const q = Object.assign({}, P);
+    q.casing_id = +P.casing_id; q.motor_od = +P.motor_od;
+    q.D_bomba = P.config === 'sobre' ? P.D_perf - P.sep : P.D_perf + P.sep;
+    q.shroud_id = q.casing_id - 0.75;
+    return q;
+  }
+
+  // ---------------- Construcción de controles ----------------
+  const inputs = {};
+  function buildControls() {
+    const root = $('controls');
+    GROUPS.forEach((g) => {
+      const det = document.createElement('details');
+      if (g.open) det.open = true;
+      det.innerHTML = `<summary>${g.name}</summary>`;
+      const box = document.createElement('div'); box.className = 'fields';
+      g.fields.forEach((f) => {
+        const w = document.createElement('div'); w.className = 'field';
+        const id = 'f_' + f.k;
+        if (f.type === 'select') {
+          w.innerHTML = `<label for="${id}">${f.label}</label><select id="${id}">${Object.entries(f.opts).map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}</select>`;
+          const el = w.querySelector('select');
+          el.addEventListener('change', () => { P[f.k] = el.value; onChange(); });
+          inputs[f.k] = { el, f };
+        } else {
+          w.innerHTML = `<label for="${id}"><span>${f.label}</span><output id="o_${f.k}"></output></label><input type="range" id="${id}" min="${f.min}" max="${f.max}" step="${f.step}">`;
+          const el = w.querySelector('input');
+          el.addEventListener('input', () => { P[f.k] = +el.value; showVal(f.k); onChange(); });
+          inputs[f.k] = { el, f, out: w.querySelector('output') };
+        }
+        box.appendChild(w);
+      });
+      if (g.id === 'rec') {
+        const h = document.createElement('p'); h.className = 'hint';
+        h.textContent = 'El diámetro del orificio está en Configuración. Con bomba dedicada, el orificio actúa como restricción de la línea.';
+        box.appendChild(h);
+      }
+      det.appendChild(box);
+      root.appendChild(det);
+    });
+    syncControls();
+  }
+  function showVal(k) {
+    const { f, out } = inputs[k];
+    if (!out) return;
+    const v = P[k] * (f.scale || 1);
+    out.textContent = `${fmt(v, f.d || 0)}${f.u ? ' ' + f.u : ''}`;
+  }
+  function syncControls() {
+    Object.keys(inputs).forEach((k) => {
+      const { el, f } = inputs[k];
+      el.value = f.type === 'select' ? String(P[k]) : P[k];
+      if (f.type === 'select' && el.value !== String(P[k])) {
+        // valor numérico que no coincide literalmente (p. ej. 5.4 vs "5.40")
+        const opt = [...el.options].find((o) => +o.value === +P[k]);
+        if (opt) el.value = opt.value;
+      }
+      showVal(k);
+    });
+  }
+
+  function buildPresets() {
+    const nav = $('presets');
+    PRESETS.forEach((p) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'chip'; b.textContent = p.name; b.dataset.id = p.id;
+      b.addEventListener('click', () => {
+        P = Object.assign({}, BASE, p.set); activePreset = p.id; syncControls(); onChange(true);
+      });
+      nav.appendChild(b);
+    });
+  }
+  function markPresets() {
+    document.querySelectorAll('.chip').forEach((b) => b.setAttribute('aria-pressed', b.dataset.id === activePreset ? 'true' : 'false'));
+  }
+
+  // ---------------- Estado del simulador ----------------
+  let R = null;              // resultado estacionario
+  const dyn = { Tw: null, Tin: null, t: 0, hist: [] };
+  let running = true;
+
+  function onChange(fromPreset) {
+    if (!fromPreset) activePreset = null;
+    markPresets();
+    R = M.simulate(modelInput());
+    if (dyn.Tw === null) { dyn.Tw = R.T_wind_F; dyn.Tin = R.T_in_F; }
+    layoutDirty = true;
+    renderResults();
+    scheduleSweep();
+  }
+
+  // ---------------- Colores ----------------
+  let CSS = {};
+  function readTokens() {
+    const cs = getComputedStyle(document.documentElement);
+    ['bg', 'panel', 'ink', 'ink-2', 'muted', 'line', 'grid', 'accent', 'steel', 'steel-2', 'earth', 'perf', 's1', 's2', 's3', 'ok', 'warn', 'crit', 't-cold', 't-mid', 't-hot']
+      .forEach((k) => { CSS[k] = cs.getPropertyValue('--' + k).trim(); });
+  }
+  const hex2rgb = (h) => { const n = parseInt(h.replace('#', ''), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+  function tColor(T, a) {
+    const lo = R ? R.T_res_F : 200, hi = R ? R.p.T_lim : 400;
+    let u = (T - lo) / Math.max(hi - lo, 1); u = Math.min(Math.max(u, 0), 1);
+    const c0 = hex2rgb(CSS['t-cold']), c1 = hex2rgb(CSS['t-mid']), c2 = hex2rgb(CSS['t-hot']);
+    const [A, B, w] = u < 0.5 ? [c0, c1, u / 0.5] : [c1, c2, (u - 0.5) / 0.5];
+    const c = A.map((x, i) => Math.round(x + (B[i] - x) * w));
+    return `rgba(${c[0]},${c[1]},${c[2]},${a == null ? 1 : a})`;
+  }
+
+  // ---------------- Esquema del pozo (canvas animado) ----------------
+  const cv = $('pozo'); const ctx = cv.getContext('2d');
+  let W = 0, H = 0, DPR = 1, layoutDirty = true, L = null;
+  const parts = []; const bubbles = [];
+  let spawnAcc = { p: 0, r: 0, g: 0 };
+
+  function resizeCanvas(c) {
+    const r = c.getBoundingClientRect();
+    DPR = window.devicePixelRatio || 1;
+    c.width = Math.round(r.width * DPR); c.height = Math.round(r.height * DPR);
+    return { w: r.width, h: r.height };
+  }
+
+  function computeLayout() {
+    const s = resizeCanvas(cv); W = s.w; H = s.h;
+    const p = R.p;
+    const cx = W / 2;
+    const casW = Math.min(W * 0.46, 210) * (0.72 + 0.28 * (p.casing_id / 8.681));
+    const xL = cx - casW / 2, xR = cx + casW / 2;
+    const motW = casW * (p.motor_od / p.casing_id) * 0.74;
+    const pumpW = motW * 0.92;
+    const tubW = Math.max(casW * (3.5 / p.casing_id) * 0.6, 14);
+    const yS0 = 22, yGround = 64;                 // superficie
+    const yT = 150, yB = H - 18, h = yB - yT;      // zona del equipo
+    const cfg = p.config;
+    const up = cfg === 'sobre';
+    const f = (a) => yT + a * h;
+    const g = up
+      ? { perf: [f(0.80), f(0.94)], yD: f(0.05), yI: f(0.36), yS: f(0.44), yM: f(0.66), yO: f(0.72) }
+      : { perf: [f(0.04), f(0.17)], yD: f(0.24), yI: f(0.52), yS: f(0.60), yM: f(0.83), yO: f(0.90) };
+    if (cfg === 'camisa') g.shroud = { top: g.yI - 0.06 * h, bot: Math.min(g.yO + 0.03 * h, yB - 6), w: (motW + (casW - motW) * 0.55) };
+    const eL = cx - motW / 2, eR = cx + motW / 2;
+    const recX = eR + (xR - eR) * 0.42;
+    const aLx = (xL + eL) / 2;           // canal anular izquierdo
+    const aRx = recX + (xR - recX) * 0.5;  // canal derecho (entre línea y revestimiento)
+    L = { cx, xL, xR, casW, motW, pumpW, tubW, yS0, yGround, yT, yB, h, g, eL, eR, recX, aLx, aRx, cfg };
+    L.paths = buildPaths();
+    parts.length = 0; bubbles.length = 0;
+    layoutDirty = false;
+  }
+
+  // Trayectorias (polilíneas con temperatura y velocidad por tramo)
+  function buildPaths() {
+    const { cx, g, aLx, aRx, recX, yT, yS0, yGround, cfg, motW, xL, xR, eL } = L;
+    const r = R; const p = r.p;
+    const vis = (v) => Math.min(16 + 46 * Math.sqrt(Math.max(v, 0)), 190); // px/s a partir de ft/s
+    const A_cas = Math.PI / 4 * (p.casing_id ** 2 - p.motor_od ** 2) / 144;   // ft2
+    const ftps = (bpd, A) => (bpd * 5.615 / 86400) / A;
+    const vAnnProd = ftps(r.qp_bpd, A_cas);
+    const vMot = r.v_motor_fts;
+    const vPump = ftps(r.Qm_bpd, Math.PI / 4 * (p.motor_od * 0.45) ** 2 / 144);
+    const vTub = ftps(r.qp_bpd, Math.PI / 4 * (p.tubing_id ** 2) / 144);
+    const vRec = ftps(r.qr_bpd, Math.PI / 4 * (p.rec_id ** 2) / 144);
+    const pumpOut = [cx, g.yD], tubTop = [cx, yT - 6];
+    const surf = [[cx, yT - 24, r.T_dis_F, vTub], [cx, yGround - 8, r.T_dis_F, vTub], [cx, yS0 + 10, r.T_dis_F, vTub], [W - 14, yS0 + 10, r.T_dis_F, vTub]];
+    const jitter = () => (Math.random() - 0.5) * 6;
+    const paths = {};
+    // Producción
+    paths.prod = () => {
+      const left = Math.random() < 0.6;
+      const yP = g.perf[0] + Math.random() * (g.perf[1] - g.perf[0]);
+      const xw = left ? xL + 2 : xR - 2;
+      const xa = (left ? aLx : aRx) + jitter();
+      const T0 = r.T_res_F;
+      let pts;
+      const intakeT = r.T_in_F;
+      if (cfg === 'sobre') {
+        pts = [[xw, yP, T0, vAnnProd], [xa, yP, T0, vMot], [xa, g.yM, r.T_mi_F, vMot], [xa, g.yS, r.T_mo_F, vMot], [xa, g.yI + 6, intakeT, vMot], [cx, g.yI, intakeT, vPump]];
+      } else if (cfg === 'sumidero') {
+        pts = [[xw, yP, T0, vAnnProd], [xa, yP, T0, vAnnProd], [xa, g.yI - 4, T0, vAnnProd], [cx, g.yI + 4, intakeT, vPump]];
+      } else {
+        const sh = g.shroud; const xo = left ? (xL + (cx - sh.w / 2)) / 2 : ((cx + sh.w / 2) + xR) / 2;
+        const xi = left ? (cx - sh.w / 2 + eL) / 2 + 1 : (cx + sh.w / 2 + L.eR) / 2 - 1;
+        pts = [[xw, yP, T0, vAnnProd], [xo, yP, T0, vAnnProd], [xo, sh.bot + 8, T0, vAnnProd], [xi, sh.bot + 8, T0, vMot], [xi, g.yM, r.T_mi_F, vMot], [xi, g.yS, r.T_mo_F, vMot], [xi, g.yI + 6, intakeT, vMot], [cx, g.yI, intakeT, vPump]];
+      }
+      pts.push([cx + jitter(), (g.yI + g.yD) / 2, (intakeT + r.T_dis_F) / 2, vPump], [pumpOut[0], pumpOut[1], r.T_dis_F, vTub], [tubTop[0], tubTop[1], r.T_dis_F, vTub], ...surf);
+      return { pts, kind: 'p' };
+    };
+    // Recirculación
+    paths.rec = () => {
+      if (p.recirc === 'ninguna' || r.qr_bpd < 1) return null;
+      const side = Math.random() < 0.55 ? aLx : (L.eR + recX) / 2;
+      const xa = side + jitter() * 0.6;
+      let pts;
+      if (p.recirc === 'orificio') {
+        pts = [[cx, g.yD + 4, r.T_dis_F, vRec], [recX, g.yD + 4, r.T_dis_F, vRec], [recX, g.yD + 30, r.T_r_F, vRec]];
+      } else {
+        const yPr = g.yI + 0.5 * (g.yS - g.yI);
+        pts = [[L.eR - 2, g.yI + 4, r.T_in_F, vRec], [recX, yPr, r.T_in_F, vRec], [recX, yPr + 14, r.T_r_F, vRec]];
+      }
+      const xin = cfg === 'camisa' ? (cx - g.shroud.w / 2 + eL) / 2 + 1 : xa;
+      pts.push([recX, g.yO, r.T_r_F, vRec], [cx, g.yO + 6, r.T_r_F, vMot], [xin, g.yO, r.T_mi_F, vMot], [xin, g.yM, r.T_mi_F, vMot], [xin, g.yS, r.T_mo_F, vMot], [xin, g.yI + 6, r.T_in_F, vMot]);
+      if (p.recirc === 'orificio') pts.push([cx, g.yI, r.T_in_F, vPump], [cx, (g.yI + g.yD) / 2, (r.T_in_F + r.T_dis_F) / 2, vPump], [cx, g.yD + 4, r.T_dis_F, vPump]);
+      else pts.push([L.eR - 2, g.yI + 4, r.T_in_F, vPump]);
+      return { pts, kind: 'r' };
+    };
+    return paths;
+  }
+
+  function spawn(dt) {
+    const r = R;
+    const rate = (q) => Math.min(q / 22, 60);   // partículas/s
+    spawnAcc.p += rate(r.qp_bpd) * dt;
+    spawnAcc.r += rate(r.qr_bpd) * dt;
+    spawnAcc.g += Math.min(r.qg_libre_bpd / 6, 30) * dt;
+    while (spawnAcc.p >= 1) { spawnAcc.p -= 1; addPart(L.paths.prod()); }
+    while (spawnAcc.r >= 1) { spawnAcc.r -= 1; const pa = L.paths.rec(); if (pa) addPart(pa); }
+    while (spawnAcc.g >= 1) { spawnAcc.g -= 1; addBubble(); }
+  }
+  function addPart(path) {
+    if (!path || parts.length > 900) return;
+    const segs = [];
+    for (let i = 1; i < path.pts.length; i++) {
+      const a = path.pts[i - 1], b = path.pts[i];
+      segs.push({ a, b, len: Math.hypot(b[0] - a[0], b[1] - a[1]) });
+    }
+    parts.push({ segs, i: 0, s: 0, kind: path.kind });
+  }
+  function addBubble() {
+    if (bubbles.length > 220) return;
+    const g = L.g; const left = Math.random() < 0.5;
+    const y = g.perf[0] + Math.random() * (g.perf[1] - g.perf[0]);
+    const x = left ? L.xL + 3 + Math.random() * 6 : L.xR - 3 - Math.random() * 6;
+    const captured = Math.random() > R.E_sep;
+    bubbles.push({ x, y, r: 1.6 + Math.random() * 2.2, captured, left, phase: Math.random() * 6 });
+  }
+
+  function step(dt) {
+    const vis = (v) => Math.min(16 + 46 * Math.sqrt(Math.max(v, 0)), 190);
+    for (let k = parts.length - 1; k >= 0; k--) {
+      const q = parts[k];
+      let seg = q.segs[q.i];
+      let adv = vis(seg.b[3]) * dt;
+      while (adv > 0 && seg) {
+        const rem = seg.len - q.s;
+        if (adv < rem) { q.s += adv; adv = 0; }
+        else { adv -= rem; q.i++; q.s = 0; seg = q.segs[q.i]; }
+      }
+      if (!seg) parts.splice(k, 1);
+    }
+    const g = L.g;
+    for (let k = bubbles.length - 1; k >= 0; k--) {
+      const b = bubbles[k];
+      const vy = 34 * (R.p.v_b / 0.5);
+      const xa = b.left ? L.aLx : L.aRx;
+      b.x += (xa - b.x) * Math.min(dt * 3, 1);
+      b.phase += dt * 4;
+      if (b.captured && Math.abs(b.y - g.yI) < 10) {
+        b.x += (L.cx - b.x) * Math.min(dt * 6, 1);
+        b.y -= vy * 0.5 * dt; b.r *= (1 - dt * 1.6);
+        if (b.r < 0.5) bubbles.splice(k, 1);
+        continue;
+      }
+      if (L.cfg === 'sobre' || b.y > g.yI + 10 || !b.captured) b.y -= vy * dt;
+      else b.y += 20 * dt; // arrastre descendente hacia la admisión
+      if (L.cfg !== 'sobre' && b.captured && b.y > g.yI - 10 && b.y < g.yI + 10) b.y = g.yI;
+      if (b.y < L.yT - 8) bubbles.splice(k, 1);
+    }
+  }
+
+  function posOf(q) {
+    const seg = q.segs[q.i]; const u = seg.len > 0 ? q.s / seg.len : 0;
+    return [seg.a[0] + (seg.b[0] - seg.a[0]) * u, seg.a[1] + (seg.b[1] - seg.a[1]) * u, seg.a[2] + (seg.b[2] - seg.a[2]) * u];
+  }
+
+  function draw() {
+    const c = ctx; const r = R; const p = r.p; const g = L.g;
+    c.setTransform(DPR, 0, 0, DPR, 0, 0);
+    c.clearRect(0, 0, W, H);
+    const { cx, xL, xR, yT, yB, yS0, yGround, motW, pumpW, tubW, recX, eL, eR } = L;
+    c.font = '11px ' + getComputedStyle(document.body).getPropertyValue('--font-data');
+
+    // Terreno y superficie
+    c.fillStyle = CSS.earth; c.fillRect(0, yGround, W, H - yGround);
+    c.fillStyle = CSS.bg; c.fillRect(xL - 6, yGround, xR - xL + 12, H - yGround);
+    // Cabezal y línea de flujo
+    c.strokeStyle = CSS.steel; c.lineWidth = 2;
+    c.fillStyle = CSS['steel-2'];
+    c.fillRect(cx - 16, yS0 + 2, 32, yGround - yS0 - 2);
+    c.strokeRect(cx - 16, yS0 + 2, 32, yGround - yS0 - 2);
+    c.fillRect(cx, yS0 + 6, W - 14 - cx, 9); c.strokeRect(cx, yS0 + 6, W - 14 - cx, 9);
+    c.fillStyle = CSS['ink-2']; c.textAlign = 'right';
+    c.fillText(`${fmt(r.qp_bpd)} bpd · ${fmt(r.T_dis_F)} °F →`, W - 16, yS0);
+    c.textAlign = 'left'; c.fillText('Cabezal', 8, yS0 + 14);
+    c.fillText(`Pcab ${fmt(p.P_wh)} psi`, 8, yS0 + 28);
+
+    // Revestimiento y tubería
+    c.strokeStyle = CSS.steel; c.lineWidth = 3;
+    c.beginPath(); c.moveTo(xL, yGround); c.lineTo(xL, yB); c.moveTo(xR, yGround); c.lineTo(xR, yB); c.stroke();
+    c.lineWidth = 2;
+    c.beginPath(); c.moveTo(cx - tubW / 2, yGround); c.lineTo(cx - tubW / 2, g.yD); c.moveTo(cx + tubW / 2, yGround); c.lineTo(cx + tubW / 2, g.yD); c.stroke();
+    // Fondo
+    c.fillStyle = CSS.steel; c.fillRect(xL, yB - 4, xR - xL, 4);
+
+    // Quiebre de profundidad
+    const yBr = (yGround + yT) / 2 + 6;
+    c.fillStyle = CSS.panel; c.fillRect(0, yBr - 9, W, 18);
+    c.strokeStyle = CSS.muted; c.lineWidth = 1.2;
+    c.beginPath();
+    for (const off of [-5, 5]) { for (let x = 0; x <= W; x += 10) { const y = yBr + off + ((x / 10) % 2 ? 3 : -3); x === 0 ? c.moveTo(x, y) : c.lineTo(x, y); } }
+    c.stroke();
+    c.fillStyle = CSS['ink-2']; c.textAlign = 'left';
+    c.fillText(`≈ ${fmt(Math.min(p.D_bomba, p.D_perf) - 150)} ft`, 8, yBr - 12);
+
+    // Perforados
+    c.strokeStyle = CSS.perf; c.lineWidth = 2;
+    for (let y = g.perf[0]; y <= g.perf[1]; y += 9) {
+      c.beginPath(); c.moveTo(xL - 14, y); c.lineTo(xL + 1, y); c.moveTo(xR + 14, y); c.lineTo(xR - 1, y); c.stroke();
+    }
+    c.fillStyle = CSS['ink-2'];
+    c.textAlign = 'left'; c.fillText('Perforados', 8, (g.perf[0] + g.perf[1]) / 2 - 2);
+    c.fillText(`${fmt(p.D_perf)} ft`, 8, (g.perf[0] + g.perf[1]) / 2 + 12);
+    c.fillText(`Pwf ${fmt(r.Pwf_psi)} psi`, 8, (g.perf[0] + g.perf[1]) / 2 + 26);
+
+    // Camisa
+    if (g.shroud) {
+      const sh = g.shroud;
+      c.strokeStyle = CSS.steel; c.lineWidth = 2;
+      c.beginPath(); c.moveTo(cx - sh.w / 2, sh.top); c.lineTo(cx - sh.w / 2, sh.bot); c.moveTo(cx + sh.w / 2, sh.top); c.lineTo(cx + sh.w / 2, sh.bot); c.stroke();
+      c.beginPath(); c.moveTo(cx - sh.w / 2, sh.top); c.lineTo(cx - pumpW / 2, sh.top); c.moveTo(cx + sh.w / 2, sh.top); c.lineTo(cx + pumpW / 2, sh.top); c.stroke();
+    }
+
+    // Línea de recirculación
+    if (p.recirc !== 'ninguna') {
+      const y0 = p.recirc === 'orificio' ? g.yD + 4 : g.yI + 0.5 * (g.yS - g.yI);
+      c.strokeStyle = CSS.accent; c.lineWidth = 4;
+      c.beginPath(); c.moveTo(p.recirc === 'orificio' ? cx + pumpW / 2 : eR, y0); c.lineTo(recX, y0); c.lineTo(recX, g.yO); c.lineTo(cx + 6, g.yO); c.stroke();
+      // orificio
+      const yo = y0 + 18;
+      c.fillStyle = CSS.accent;
+      c.beginPath(); c.moveTo(recX - 7, yo - 5); c.lineTo(recX - 1.5, yo); c.lineTo(recX - 7, yo + 5); c.fill();
+      c.beginPath(); c.moveTo(recX + 7, yo - 5); c.lineTo(recX + 1.5, yo); c.lineTo(recX + 7, yo + 5); c.fill();
+      if (p.recirc === 'dedicada') {
+        c.fillStyle = CSS['steel-2']; c.strokeStyle = CSS.accent; c.lineWidth = 1.5;
+        c.fillRect(eR - 1, g.yI + 2, recX - eR + 6, (g.yS - g.yI) - 4); c.strokeRect(eR - 1, g.yI + 2, recX - eR + 6, (g.yS - g.yI) - 4);
+      }
+    }
+
+    // Bomba
+    c.fillStyle = CSS['steel-2']; c.strokeStyle = CSS.steel; c.lineWidth = 1.5;
+    c.fillRect(cx - pumpW / 2, g.yD, pumpW, g.yI - g.yD); c.strokeRect(cx - pumpW / 2, g.yD, pumpW, g.yI - g.yD);
+    c.strokeStyle = CSS.steel; c.lineWidth = 1;
+    const nst = Math.min(Math.round(p.N_etapas / 6), 40);
+    for (let i = 1; i < nst; i++) { const y = g.yD + (g.yI - g.yD) * i / nst; c.beginPath(); c.moveTo(cx - pumpW / 2 + 3, y); c.lineTo(cx + pumpW / 2 - 3, y); c.stroke(); }
+    // Admisión
+    c.fillStyle = CSS.bg; c.strokeStyle = CSS.steel;
+    for (let i = 0; i < 3; i++) { c.fillRect(cx - pumpW / 2 + 2 + i * (pumpW - 4) / 3, g.yI + 3, (pumpW - 10) / 3, 6); }
+    // Sello
+    c.fillStyle = CSS['steel-2']; c.fillRect(cx - motW * 0.42, g.yI + 12, motW * 0.84, g.yS - g.yI - 12); c.strokeRect(cx - motW * 0.42, g.yI + 12, motW * 0.84, g.yS - g.yI - 12);
+    // Motor (color = temperatura de devanado dinámica)
+    const Tw = dyn.Tw ?? r.T_wind_F;
+    c.fillStyle = tColor(Tw); c.strokeStyle = CSS.steel; c.lineWidth = 1.5;
+    c.fillRect(eL, g.yS, motW, g.yM - g.yS); c.strokeRect(eL, g.yS, motW, g.yM - g.yS);
+    c.strokeStyle = 'rgba(0,0,0,0.12)';
+    for (let y = g.yS + 6; y < g.yM - 3; y += 6) { c.beginPath(); c.moveTo(eL + 3, y); c.lineTo(eR - 3, y); c.stroke(); }
+    c.fillStyle = CSS.steel; c.fillRect(cx - motW * 0.3, g.yM, motW * 0.6, 6);
+
+    // Partículas de líquido
+    for (const q of parts) {
+      const [x, y, T] = posOf(q);
+      c.fillStyle = tColor(T, 0.95);
+      c.beginPath(); c.arc(x, y, q.kind === 'r' ? 2.3 : 2.6, 0, Math.PI * 2); c.fill();
+    }
+    // Burbujas
+    c.strokeStyle = CSS['ink-2']; c.lineWidth = 1.2; c.fillStyle = CSS.panel;
+    for (const b of bubbles) { c.beginPath(); c.arc(b.x + Math.sin(b.phase) * 1.5, b.y, b.r, 0, Math.PI * 2); c.fill(); c.stroke(); }
+
+    // Rótulos de componentes (izquierda) y temperaturas (derecha)
+    const lab = (txt, y, x2) => {
+      c.fillStyle = CSS['ink-2']; c.textAlign = 'left'; c.fillText(txt, 8, y + 4);
+      c.strokeStyle = CSS.line; c.lineWidth = 1; c.beginPath(); c.moveTo(8 + c.measureText(txt).width + 4, y); c.lineTo(x2, y); c.stroke();
+    };
+    const labR = (txt, y, col) => { c.fillStyle = col || CSS['ink-2']; c.textAlign = 'right'; c.fillText(txt, W - 8, y + 4); };
+    lab(`Bomba ${fmt(p.N_etapas)} et.`, (g.yD + g.yI) / 2, cx - pumpW / 2 - 4);
+    lab('Admisión', g.yI + 6, cx - pumpW / 2 - 4);
+    lab(`Motor ${fmt(p.HP_nom)} hp`, (g.yS + g.yM) / 2, eL - 4);
+    labR(`desc. ${fmt(r.T_dis_F)} °F`, g.yD + 2);
+    labR(`${fmt(r.Pdis_psi)} psi`, g.yD + 16);
+    labR(`adm. ${fmt(dyn.Tin ?? r.T_in_F)} °F`, g.yI + 4);
+    labR(`${fmt(r.Pin_psi)} psi`, g.yI + 18);
+    labR(`devanado`, (g.yS + g.yM) / 2 - 14);
+    labR(`${fmt(Tw)} °F`, (g.yS + g.yM) / 2, Tw > p.T_lim ? CSS.crit : CSS.ink);
+    labR(`v ${fmt(r.v_motor_fts, 2)} ft/s`, (g.yS + g.yM) / 2 + 14, r.v_motor_fts < 1 ? CSS.crit : CSS['ink-2']);
+    if (p.recirc !== 'ninguna') {
+      labR(`recirc. ${fmt(r.qr_bpd)} bpd`, g.yO + 4, CSS.accent);
+      labR(`${fmt(r.T_r_F)} °F`, g.yO + 18, CSS.accent);
+    }
+  }
+
+  // ---------------- Resultados ----------------
+  function pill(n, t) { return `<span class="pill ${n}">${t}</span>`; }
+  function renderResults() {
+    const r = R; const p = r.p;
+    const tw = dyn.Tw ?? r.T_wind_F;
+    const st = {
+      v: r.v_motor_fts < 1 ? ['critico', 'Bajo mínimo'] : r.v_motor_fts < 1.3 ? ['aviso', 'Margen corto'] : ['ok', 'Adecuada'],
+      tw: tw > p.T_lim ? ['critico', 'Sobre límite'] : tw > p.T_lim - 30 ? ['aviso', 'Cerca del límite'] : ['ok', 'Bajo el límite'],
+      x: r.zona === 'rango' ? ['ok', 'En rango'] : r.zona === 'empuje_descendente' ? ['aviso', 'Empuje descendente'] : r.zona === 'empuje_ascendente' ? ['aviso', 'Empuje ascendente'] : ['critico', 'Sin flujo'],
+      gvf: r.GVF > p.GVF_lim ? ['critico', 'Sobre límite'] : r.GVF > 0.7 * p.GVF_lim ? ['aviso', 'Cerca del límite'] : ['ok', 'Manejable'],
+      qp: r.estado === 'normal' ? ['ok', 'Estable'] : r.estado === 'pump_off' ? ['critico', 'Pump-off'] : ['critico', 'Sin producción'],
+      tin: (dyn.Tin ?? r.T_in_F) - p.T_res > 40 ? ['aviso', 'Calentamiento alto'] : ['ok', 'Moderado'],
+    };
+    const tiles = [
+      ['Producción q<sub>p</sub>', fmt(r.qp_bpd), 'bpd', `Pwf ${fmt(r.Pwf_psi)} psi`, st.qp],
+      ['Recirculación q<sub>r</sub>', fmt(r.qr_bpd), 'bpd', `R = q<sub>r</sub>/q<sub>p</sub> = ${fmt(Math.min(r.R, 999), 2)}`, null],
+      ['Velocidad en el motor', fmt(r.v_motor_fts, 2), 'ft/s', `Re ${fmt(r.Re)} · ${r.regimen}`, st.v],
+      ['Devanado del motor', fmt(tw), '°F', `estacionario ${fmt(r.T_wind_F)} °F`, st.tw],
+      ['Admisión', fmt(dyn.Tin ?? r.T_in_F), '°F', `+${fmt(r.dT_in_F, 1)} °F sobre yacimiento`, st.tin],
+      ['Presión de admisión', fmt(r.Pin_psi), 'psi', `Pb ${fmt(r.Pb)} psi`, null],
+      ['Gas libre en admisión', fmt(r.GVF * 100, 1), '%', `separación natural ${fmt(r.E_sep * 100)} %`, st.gvf],
+      ['Punto de bomba', fmt(r.x, 2), '× BEP', `Q bomba ${fmt(r.Qm_bpd)} bpd · carga motor ${fmt(r.L * 100)} %`, st.x],
+    ];
+    $('kpis').innerHTML = tiles.map(([k, v, u, s, ps]) => `<div class="kpi"><span class="k">${k}</span><span class="v">${v}<small>${u}</small></span>${ps ? pill(ps[0], ps[1]) : '<span class="s">&nbsp;</span>'}<span class="s">${s}</span></div>`).join('');
+
+    const al = r.alertas.slice();
+    if (p.config === 'camisa' && +p.motor_od > (+p.casing_id - 0.75) - 0.25) al.unshift({ n: 'critico', t: 'La camisa no cabe con este motor en este revestimiento: usa un motor de menor diámetro.' });
+    if (p.config !== 'camisa' && +p.motor_od > +p.casing_id - 0.2) al.unshift({ n: 'critico', t: 'El motor no cabe en el revestimiento seleccionado.' });
+    $('alerts').innerHTML = al.length ? al.map((a) => `<li>${pill(a.n, a.n === 'critico' ? 'Crítico' : 'Aviso')}<span>${a.t}</span></li>`).join('') : `<li>${pill('ok', 'OK')}<span>Sin alertas: el equipo opera dentro de los criterios de diseño.</span></li>`;
+    $('lectura').innerHTML = narrative(r);
+    $('eqgrid').innerHTML = equations(r);
+    $('tmin').textContent = `${fmt(r.T_res_F)} °F`;
+    $('tmax').textContent = `${fmt(p.T_lim)} °F`;
+    drawCharts();
+  }
+
+  function narrative(r) {
+    const p = r.p; const out = [];
+    const cfgTxt = { sobre: 'por encima de los perforados: el fluido del yacimiento sube por el anular y pasa por el motor antes de entrar a la bomba', sumidero: 'por debajo de los perforados: el fluido baja hacia la admisión y no pasa por el motor', camisa: 'por debajo de los perforados dentro de una camisa que obliga al fluido a bajar por fuera y subir por el motor' };
+    out.push(`El equipo está ${cfgTxt[p.config]}.`);
+    if (p.recirc === 'ninguna') {
+      out.push(`Sin recirculación, por el motor pasan <b>${fmt(r.Q_mot_bpd)} bpd</b> a <b>${fmt(r.v_motor_fts, 2)} ft/s</b>.` + (r.v_motor_fts < 1 ? ' Eso no alcanza para refrigerarlo: el calor del motor solo sale por convección natural y el devanado se calienta.' : ''));
+    } else if (p.recirc === 'orificio') {
+      out.push(`La bomba entrega <b>${fmt(r.Qm_bpd)} bpd</b>; de ese caudal, <b>${fmt(r.qr_bpd)} bpd</b> vuelven por la línea y el orificio hasta debajo del motor y suben a <b>${fmt(r.v_motor_fts, 2)} ft/s</b>. La producción a superficie es <b>${fmt(r.qp_bpd)} bpd</b>.`);
+      out.push(`El orificio estrangula <b>${fmt(r.dpRec_psi)} psi</b>: esa energía hidráulica, <b>${fmt(r.P_v_kW, 1)} kW</b>, se convierte en calor dentro del lazo. Sumada a las pérdidas de bomba y motor, eleva la admisión <b>${fmt(r.dT_in_F, 1)} °F</b> sobre el yacimiento. Con R = ${fmt(Math.min(r.R, 999), 2)}, cada barril producido arrastra ${fmt(Math.min(r.R, 999), 2)} barriles recirculados.`);
+    } else {
+      out.push(`Una bomba de recirculación de ${fmt(p.Nr_etapas)} etapas toma <b>${fmt(r.qr_bpd)} bpd</b> en la admisión y los envía por la línea hasta debajo del motor, que queda refrigerado a <b>${fmt(r.v_motor_fts, 2)} ft/s</b>. La bomba principal solo maneja la producción (<b>${fmt(r.qp_bpd)} bpd</b>).`);
+      out.push(`La bomba dedicada consume <b>${fmt(r.P_rs_kW, 1)} kW</b>, todos convertidos en calor del lazo; la admisión queda <b>${fmt(r.dT_in_F, 1)} °F</b> sobre el yacimiento.`);
+    }
+    if (p.config === 'sumidero' && p.recirc !== 'ninguna') out.push(`En el sumidero el motor se refrigera con el fluido más caliente del lazo (${fmt(r.T_mi_F)} °F a la entrada del anular), no con fluido fresco del yacimiento.`);
+    out.push(`La película del motor (h = ${fmt(r.h)} W/m²K, régimen ${r.regimen}) añade ${fmt(r.dT_film_F, 1)} °F entre el fluido y la carcasa; el devanado llega a <b>${fmt(r.T_wind_F)} °F</b> en estado estacionario, con vida relativa del aislamiento ×${fmt(Math.min(r.vida_rel, 999), r.vida_rel < 10 ? 2 : 0)} respecto a operar en el límite (regla de Montsinger).`);
+    if (r.qg_libre_bpd > 1) out.push(`En la admisión hay ${fmt(r.qg_libre_bpd)} bbl/d de gas libre a condiciones de fondo; la separación natural retira ${fmt(r.E_sep * 100)} % y la fracción que entra a la bomba es <b>${fmt(r.GVF * 100, 1)} %</b>.`);
+    return out.map((t) => `<p>${t}</p>`).join('');
+  }
+
+  function equations(r) {
+    const p = r.p;
+    const C = r.fl.C; const qp_m3 = r.qp_bpd * 1.84013e-6;
+    const card = (t, d, f, s) => `<div class="panel eq"><h3>${t}</h3><p>${d}</p>${f.map((x) => `<div class="formula">${x}</div>`).join('')}<div class="sust">${s}</div></div>`;
+    const rm = p.recirc === 'orificio' && r.Qm_bpd > 0 ? r.qr_bpd / r.Qm_bpd : 0;
+    return [
+      card('Balance de energía del lazo', 'Todo el calor que se genera en el lazo sale con la producción o se pierde hacia la formación. La recirculación redistribuye el calor; no lo evacua.',
+        ['T<sub>adm</sub> − T<sub>yac</sub> = (r·P<sub>b</sub> + P<sub>v</sub> + P<sub>m</sub> + P<sub>br</sub>) / (ρc<sub>p</sub>·q<sub>p</sub> + UA)'],
+        `= (${fmt(rm, 2)}·${fmt(r.P_p_kW, 1)} + ${fmt(r.P_v_kW, 1)} + ${fmt(r.P_m_kW, 1)} + ${fmt(r.P_rs_kW, 1)}) kW / (${fmt(C * qp_m3, 0)} + ${fmt(p.UA)}) W/K = ${fmt(r.dT_in_F, 1)} °F`),
+      card('Hidráulica acoplada', 'La bomba debe vencer la altura del sistema con el caudal que la atraviesa. Con derivación por orificio ese caudal incluye la recirculación.',
+        ['ρg·H<sub>bomba</sub>(q<sub>p</sub> + q<sub>r</sub>) = P<sub>desc</sub>(q<sub>p</sub>) − P<sub>adm</sub>(q<sub>p</sub>)', 'ρg·H<sub>bomba</sub>(q<sub>p</sub> + q<sub>r</sub>) = ΔP<sub>orificio</sub>(q<sub>r</sub>) + ΔP<sub>línea</sub>(q<sub>r</sub>)'],
+        `H = ${fmt(r.TDH_ft)} ft · P_desc = ${fmt(r.Pdis_psi)} psi · P_adm = ${fmt(r.Pin_psi)} psi · ΔP_rec = ${fmt(r.dpRec_psi)} psi`),
+      card('Velocidad de refrigeración', 'Caudal que pasa por el anular del motor dividido por el área libre. El criterio clásico pide al menos 1 ft/s.',
+        ['v = Q<sub>motor</sub> / [π/4·(D<sub>rev</sub>² − D<sub>motor</sub>²)]'],
+        `= ${fmt(r.Q_mot_bpd)} bpd / ${fmt(r.A_ann_in2, 2)} in² = ${fmt(r.v_motor_fts, 2)} ft/s · D_h = ${fmt(r.Dh_in, 3)} in`),
+      card('Película y devanado', 'El salto de la película depende del coeficiente h (Gnielinski en turbulento, Hausen en laminar, combinado con convección natural).',
+        ['T<sub>piel</sub> = T<sub>fluido,sal</sub> + q″ / h', 'T<sub>dev</sub> = T<sub>piel</sub> + ΔT<sub>int</sub>·P<sub>m</sub>/P<sub>m,nom</sub>'],
+        `q″ = ${fmt(r.qflux)} W/m² · h = ${fmt(r.h)} W/m²K · T_piel = ${fmt(r.T_skin_F)} °F · T_dev = ${fmt(r.T_wind_F)} °F`),
+      card('Calentamiento en la bomba', 'La potencia que no se convierte en altura se disipa en el fluido que atraviesa la bomba.',
+        ['ΔT<sub>bomba</sub> = g·H·(1 − η) / (η·c<sub>p</sub>)'],
+        `η = ${fmt(r.eta_pump * 100, 1)} % · P_eje = ${fmt(r.Psh_main_kW, 1)} kW · P_hid = ${fmt(r.Phyd_main_kW, 1)} kW · ΔT = ${fmt(r.T_dis_F - r.T_in_F, 1)} °F`),
+      card('Gas libre en la admisión', 'Dilución por el líquido recirculado y re-liberación parcial φ del gas que vuelve con él.',
+        ['GVF = q<sub>g</sub>(1 − E)(1 + φR) / [q<sub>g</sub>(1 − E)(1 + φR) + q<sub>L</sub> + q<sub>r</sub>]'],
+        `q_g = ${fmt(r.qg_libre_bpd, 1)} bbl/d · E = ${fmt(r.E_sep * 100)} % · R = ${fmt(Math.min(r.R, 999), 2)} · Rs = ${fmt(r.Rs)} scf/stb · GVF = ${fmt(r.GVF * 100, 1)} %`),
+    ].join('');
+  }
+
+  // ---------------- Gráficas ----------------
+  const charts = {};
+  function chart(id, cfg) {
+    const c = $(id); const s = resizeCanvas(c); const x = c.getContext('2d');
+    x.setTransform(DPR, 0, 0, DPR, 0, 0); x.clearRect(0, 0, s.w, s.h);
+    const m = { l: 52, r: 14, t: 10, b: 34 };
+    const all = cfg.series.flatMap((se) => se.pts);
+    const xs = all.map((p) => p[0]).concat(cfg.extraX || []); const ys = all.map((p) => p[1]).concat(cfg.extraY || []);
+    let [x0, x1] = cfg.xDomain || [Math.min(...xs), Math.max(...xs)];
+    let [y0, y1] = cfg.yDomain || [Math.min(...ys), Math.max(...ys)];
+    if (!(x1 > x0)) x1 = x0 + 1;
+    if (!(y1 > y0)) { y1 = y0 + 1; y0 = y0 - 1; }
+    const pad = (y1 - y0) * 0.08; if (!cfg.yDomain) { y0 -= cfg.yZero ? 0 : pad; y1 += pad; }
+    if (cfg.yZero) y0 = Math.min(0, y0);
+    const X = (v) => m.l + (v - x0) / (x1 - x0) * (s.w - m.l - m.r);
+    const Y = (v) => s.h - m.b - (v - y0) / (y1 - y0) * (s.h - m.t - m.b);
+    const font = getComputedStyle(document.body).getPropertyValue('--font-data');
+    x.font = '10.5px ' + font;
+    // bandas
+    (cfg.bands || []).forEach((b) => { x.fillStyle = b.color; x.globalAlpha = 0.12; x.fillRect(X(b.x0), m.t, X(b.x1) - X(b.x0), s.h - m.t - m.b); x.globalAlpha = 1; });
+    // rejilla y ejes
+    const ticks = (a, b, n) => { const st = Math.pow(10, Math.floor(Math.log10((b - a) / n))); const k = [1, 2, 2.5, 5, 10].find((q) => (b - a) / (q * st) <= n) * st; const out = []; for (let v = Math.ceil(a / k) * k; v <= b + 1e-9; v += k) out.push(+v.toFixed(10)); return out; };
+    x.strokeStyle = CSS.grid; x.lineWidth = 1; x.fillStyle = CSS.muted; x.textAlign = 'right';
+    ticks(y0, y1, 5).forEach((v) => { x.beginPath(); x.moveTo(m.l, Y(v)); x.lineTo(s.w - m.r, Y(v)); x.stroke(); x.fillText(cfg.yFmt ? cfg.yFmt(v) : fmt(v, Math.abs(y1 - y0) < 5 ? 1 : 0), m.l - 6, Y(v) + 3.5); });
+    x.textAlign = 'center';
+    if (cfg.categories) cfg.categories.forEach((t, i) => { x.fillText(t, X(i), s.h - m.b + 14); });
+    else ticks(x0, x1, Math.max(3, Math.floor((s.w - 80) / 70))).forEach((v) => x.fillText(cfg.xFmt ? cfg.xFmt(v) : fmt(v, Math.abs(x1 - x0) < 5 ? 2 : 0), X(v), s.h - m.b + 14));
+    x.strokeStyle = CSS['steel-2']; x.beginPath(); x.moveTo(m.l, s.h - m.b); x.lineTo(s.w - m.r, s.h - m.b); x.stroke();
+    x.fillStyle = CSS['ink-2']; x.fillText(cfg.xLabel, m.l + (s.w - m.l - m.r) / 2, s.h - 4);
+    x.save(); x.translate(12, m.t + (s.h - m.t - m.b) / 2); x.rotate(-Math.PI / 2); x.fillText(cfg.yLabel, 0, 0); x.restore();
+    // líneas horizontales de referencia
+    (cfg.hlines || []).forEach((h) => { if (h.y < y0 || h.y > y1) return; x.strokeStyle = h.color; x.setLineDash([4, 3]); x.beginPath(); x.moveTo(m.l, Y(h.y)); x.lineTo(s.w - m.r, Y(h.y)); x.stroke(); x.setLineDash([]); x.fillStyle = h.color; x.textAlign = 'right'; x.fillText(h.label, s.w - m.r - 2, Y(h.y) - 4); });
+    // series
+    x.save(); x.beginPath(); x.rect(m.l, m.t, s.w - m.l - m.r, s.h - m.t - m.b); x.clip();
+    cfg.series.forEach((se) => {
+      x.strokeStyle = se.color; x.lineWidth = 2; x.lineJoin = 'round'; x.setLineDash(se.dash || []);
+      x.beginPath(); se.pts.forEach((p, i) => (i ? x.lineTo(X(p[0]), Y(p[1])) : x.moveTo(X(p[0]), Y(p[1])))); x.stroke(); x.setLineDash([]);
+      if (se.dots) se.pts.forEach((p) => { x.fillStyle = se.color; x.strokeStyle = CSS.panel; x.lineWidth = 2; x.beginPath(); x.arc(X(p[0]), Y(p[1]), 4.5, 0, 7); x.fill(); x.stroke(); });
+    });
+    x.restore();
+    (cfg.markers || []).forEach((mk) => { x.fillStyle = mk.color; x.strokeStyle = CSS.panel; x.lineWidth = 2.5; x.beginPath(); x.arc(X(mk.x), Y(mk.y), 6, 0, 7); x.fill(); x.stroke(); if (mk.label) { x.fillStyle = CSS.ink; x.textAlign = mk.x > (x0 + x1) / 2 ? 'right' : 'left'; x.fillText(mk.label, X(mk.x) + (x.textAlign === 'right' ? -10 : 10), Y(mk.y) - 8); } });
+    // etiquetas directas al final de cada serie
+    (cfg.endLabels || []).forEach((t, i) => { const se = cfg.series[i]; const p = se.pts[se.pts.length - 1]; if (!p) return; x.fillStyle = CSS['ink-2']; x.textAlign = 'right'; x.fillText(t, X(p[0]) - 4, Y(p[1]) - 7); });
+    charts[id] = { cfg, X, Y, m, s, x0, x1 };
+  }
+
+  function hover(id) {
+    const c = $(id); const tip = $('tip');
+    c.addEventListener('mousemove', (e) => {
+      const ch = charts[id]; if (!ch) return;
+      const rect = c.getBoundingClientRect(); const mx = e.clientX - rect.left;
+      let best = null;
+      ch.cfg.series.forEach((se) => se.pts.forEach((p) => { const d = Math.abs(ch.X(p[0]) - mx); if (!best || d < best.d) best = { d, p, se }; }));
+      if (!best || best.d > 40) { tip.hidden = true; return; }
+      const rows = ch.cfg.series.map((se) => { let q = null; se.pts.forEach((p) => { if (!q || Math.abs(p[0] - best.p[0]) < Math.abs(q[0] - best.p[0])) q = p; }); return q ? `<div><span style="color:${se.color}">●</span> ${se.name}: ${ch.cfg.tipY(q[1])}</div>` : ''; }).join('');
+      tip.innerHTML = `<div style="color:var(--muted)">${ch.cfg.tipX(best.p[0], best.p)}</div>${rows}`;
+      tip.hidden = false;
+      const pr = document.body.getBoundingClientRect();
+      let left = e.clientX - pr.left + 14; const top = e.clientY - pr.top + 14;
+      if (e.clientX + 230 > window.innerWidth) left -= 250;
+      tip.style.left = left + 'px'; tip.style.top = top + 'px';
+    });
+    c.addEventListener('mouseleave', () => { $('tip').hidden = true; });
+  }
+
+  function drawCharts() {
+    const r = R; const p = r.p;
+    // Curva de bomba y curva de sistema
+    const pumpPts = []; const Qb = p.Q_bep * p.freq / 60;
+    for (let i = 0; i <= 60; i++) { const Q = 1.9 * Qb * i / 60; pumpPts.push([Q, p.N_etapas * p.H0 * (p.freq / 60) ** 2 * M.hfun(Q / Qb)]); }
+    const sys = []; const cu = r.hy.curves; const rho = r.fl.rho; const BPD = M.units.BPD;
+    for (let i = 0; i <= 50; i++) {
+      const qp = r.qmax_bpd * 0.999 * i / 50 * BPD;
+      const Pin = cu.Pin(qp); if (Pin < p.P_in_min * M.units.PSI) break;
+      sys.push([cu.Qmain(qp) / BPD, (cu.Pdis(qp) - Pin) / (rho * M.units.G) / M.units.FT]);
+    }
+    chart('cBomba', {
+      series: [{ name: 'Bomba', color: CSS.s1, pts: pumpPts }, { name: 'Sistema', color: CSS.s2, pts: sys }],
+      bands: [{ x0: p.ROR_min * Qb, x1: p.ROR_max * Qb, color: CSS.ok }],
+      markers: [{ x: r.Qm_bpd, y: r.TDH_ft, color: CSS.ink, label: `${fmt(r.Qm_bpd)} bpd · ${fmt(r.TDH_ft)} ft` }],
+      xLabel: 'Caudal por la bomba [bpd]', yLabel: 'Altura [ft]', yZero: true, xDomain: [0, 1.9 * Qb],
+      tipX: (v) => `${fmt(v)} bpd`, tipY: (v) => `${fmt(v)} ft`,
+    });
+    // Tendencia
+    const hh = dyn.hist; const t0 = hh.length ? hh[0][0] : 0;
+    chart('cTend', {
+      series: [{ name: 'Devanado', color: CSS.s1, pts: hh.map((h) => [h[0] / 3600, h[1]]) }, { name: 'Admisión', color: CSS.s2, pts: hh.map((h) => [h[0] / 3600, h[2]]) }],
+      hlines: [{ y: p.T_lim, label: 'límite aislamiento', color: CSS.crit }],
+      extraY: [p.T_res], extraX: [t0 / 3600, t0 / 3600 + 0.5],
+      xLabel: 'Tiempo simulado [h]', yLabel: 'Temperatura [°F]',
+      xFmt: (v) => fmt(v, 1), tipX: (v) => `t = ${fmt(v, 2)} h`, tipY: (v) => `${fmt(v, 1)} °F`,
+    });
+    // Perfil térmico
+    let nodes;
+    if (p.config === 'sumidero') {
+      nodes = [['Yac.', r.T_res_F], ['Adm.', r.T_in_F], ['Desc.', r.T_dis_F]];
+      if (p.recirc !== 'ninguna') nodes.push(['Línea', r.T_r_F], ['Mot. ent.', r.T_mi_F], ['Mot. sal.', r.T_mo_F]);
+      else nodes.push(['Motor', r.T_mo_F]);
+    } else {
+      nodes = [['Yac.', r.T_res_F], ['Mot. ent.', r.T_mi_F], ['Mot. sal.', r.T_mo_F], ['Adm.', r.T_in_F], ['Desc.', r.T_dis_F]];
+      if (p.recirc !== 'ninguna') nodes.push(['Línea', r.T_r_F]);
+    }
+    nodes.push(['Piel', r.T_skin_F], ['Devan.', r.T_wind_F]);
+    chart('cPerfil', {
+      series: [{ name: 'Temperatura', color: CSS.s1, pts: nodes.map((n, i) => [i, n[1]]), dots: true }],
+      categories: nodes.map((n) => n[0]), xDomain: [-0.4, nodes.length - 0.6],
+      hlines: [{ y: p.T_lim, label: 'límite', color: CSS.crit }],
+      xLabel: 'Nodo del recorrido del fluido', yLabel: 'Temperatura [°F]',
+      tipX: (v) => nodes[Math.round(v)][0], tipY: (v) => `${fmt(v, 1)} °F`,
+    });
+    drawSens();
+  }
+
+  // Sensibilidad (barrido diferido)
+  let sweepData = null, sweepTimer = null;
+  function sweepKey() { return R.p.recirc === 'ninguna' ? 'freq' : 'orif_d'; }
+  function scheduleSweep() {
+    clearTimeout(sweepTimer);
+    sweepTimer = setTimeout(() => {
+      const key = sweepKey(); const base = modelInput();
+      const vals = key === 'freq' ? Array.from({ length: 19 }, (_, i) => 35 + i * 35 / 18) : Array.from({ length: 19 }, (_, i) => 0.06 + i * (0.6 - 0.06) / 18);
+      sweepData = { key, pts: M.sweep(base, key, vals) };
+      drawSens();
+    }, 220);
+  }
+  function sensTDomain(met) {
+    const v = sweepData.pts.map((q) => q.o[met]).concat([R.p.T_res, R.p.T_lim]);
+    const lo = Math.min(...v), hi = Math.min(Math.max(...v), R.p.T_lim + 150);
+    return [lo - 10, hi + 10];
+  }
+  function drawSens() {
+    if (!sweepData) return;
+    const met = $('sensMetric').value; const key = sweepData.key;
+    const name = $('sensMetric').selectedOptions[0].textContent;
+    $('sensTitle').textContent = key === 'freq' ? 'Sensibilidad a la frecuencia' : 'Sensibilidad al orificio';
+    $('sensLegend').textContent = name;
+    const unit = { T_wind_F: '°F', qp_bpd: 'bpd', v_motor_fts: 'ft/s', T_in_F: '°F', x: '× BEP' }[met];
+    const d = { T_wind_F: 0, qp_bpd: 0, v_motor_fts: 2, T_in_F: 1, x: 2 }[met];
+    const hl = met === 'T_wind_F' ? [{ y: R.p.T_lim, label: 'límite', color: CSS.crit }] : met === 'v_motor_fts' ? [{ y: 1, label: '1 ft/s', color: CSS.crit }] : [];
+    chart('cSens', {
+      series: [{ name, color: CSS.s1, pts: sweepData.pts.map((q) => [q.v, q.o[met]]) }],
+      markers: [{ x: R.p[key], y: R[met], color: CSS['ink-2'] }],
+      hlines: hl, yZero: met !== 'T_wind_F' && met !== 'T_in_F',
+      yDomain: (met === 'T_wind_F' || met === 'T_in_F') ? sensTDomain(met) : null,
+      xLabel: key === 'freq' ? 'Frecuencia [Hz]' : 'Diámetro del orificio [in]', yLabel: `${name} [${unit}]`,
+      tipX: (v) => (key === 'freq' ? `${fmt(v, 1)} Hz` : `Ø ${fmt(v, 2)} in`), tipY: (v) => `${fmt(v, d)} ${unit}`,
+    });
+  }
+
+  // ---------------- Bucle de animación ----------------
+  let last = performance.now(); let histAcc = 0; let uiAcc = 0;
+  function frame(now) {
+    const dtR = Math.min((now - last) / 1000, 0.1); last = now;
+    if (layoutDirty) computeLayout();
+    if (running) {
+      const sp = +$('speed').value; const dts = dtR * sp;
+      dyn.t += dts;
+      const a1 = 1 - Math.exp(-dts / R.tau_mot), a2 = 1 - Math.exp(-dts / R.tau_pozo);
+      dyn.Tin += (R.T_in_F - dyn.Tin) * a2;
+      // el devanado sigue al estacionario desplazado por el transitorio de la admisión
+      const target = R.T_wind_F + (dyn.Tin - R.T_in_F);
+      dyn.Tw += (target - dyn.Tw) * a1;
+      histAcc += dts;
+      if (histAcc >= sp / 6) { histAcc = 0; dyn.hist.push([dyn.t, dyn.Tw, dyn.Tin]); const lim = 12 * 3600 * (sp / 600); while (dyn.hist.length && dyn.hist[0][0] < dyn.t - Math.max(lim, 3600)) dyn.hist.shift(); }
+      spawn(dtR); step(dtR);
+      uiAcc += dtR;
+      if (uiAcc > 0.5) { uiAcc = 0; renderLive(); }
+    }
+    draw();
+    $('clock').textContent = `t = ${Math.floor(dyn.t / 3600)}:${String(Math.floor(dyn.t / 60) % 60).padStart(2, '0')} h`;
+    requestAnimationFrame(frame);
+  }
+  function renderLive() {
+    // actualización ligera: KPI dinámicos y tendencia
+    const tw = dyn.Tw, tin = dyn.Tin;
+    const k = document.querySelectorAll('.kpi');
+    if (k[3]) k[3].querySelector('.v').innerHTML = `${fmt(tw)}<small>°F</small>`;
+    if (k[4]) k[4].querySelector('.v').innerHTML = `${fmt(tin)}<small>°F</small>`;
+    const p = R.p;
+    const set = (el, n, t) => { if (el) { el.className = `pill ${n}`; el.textContent = t; } };
+    set(k[3] && k[3].querySelector('.pill'), ...(tw > p.T_lim ? ['critico', 'Sobre límite'] : tw > p.T_lim - 30 ? ['aviso', 'Cerca del límite'] : ['ok', 'Bajo el límite']));
+    const hh = dyn.hist; const t0 = hh.length ? hh[0][0] : 0;
+    chart('cTend', {
+      series: [{ name: 'Devanado', color: CSS.s1, pts: hh.map((h) => [h[0] / 3600, h[1]]) }, { name: 'Admisión', color: CSS.s2, pts: hh.map((h) => [h[0] / 3600, h[2]]) }],
+      hlines: [{ y: p.T_lim, label: 'límite aislamiento', color: CSS.crit }],
+      extraY: [p.T_res], extraX: [t0 / 3600, t0 / 3600 + 0.5],
+      xLabel: 'Tiempo simulado [h]', yLabel: 'Temperatura [°F]',
+      xFmt: (v) => fmt(v, 1), tipX: (v) => `t = ${fmt(v, 2)} h`, tipY: (v) => `${fmt(v, 1)} °F`,
+    });
+  }
+
+  // ---------------- Arranque ----------------
+  readTokens();
+  buildControls(); buildPresets();
+  onChange(true);
+  ['cBomba', 'cTend', 'cPerfil', 'cSens'].forEach(hover);
+  $('sensMetric').addEventListener('change', drawSens);
+  $('play').addEventListener('click', () => { running = !running; $('play').textContent = running ? 'Pausar' : 'Reanudar'; });
+  $('arranque').addEventListener('click', () => { dyn.Tw = R.p.T_res + 5; dyn.Tin = R.p.T_res; dyn.t = 0; dyn.hist = []; });
+  const retheme = () => { readTokens(); drawCharts(); };
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', retheme);
+  new MutationObserver(retheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { layoutDirty = true; drawCharts(); }, 120); });
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
