@@ -6,7 +6,8 @@ Este documento reúne la física y la matemática de los sistemas de recirculaci
 
 | Archivo | Uso |
 |---|---|
-| [`simulador/index.html`](../simulador/index.html) | Simulador visual interactivo (abrir en el navegador) |
+| [`simulador/index.html`](../simulador/index.html) | Simulador interactivo: pozo 3D en corte, recorrido guiado de 9 pasos, diagnóstico y curvas (abrir en el navegador) |
+| [`simulador/escena3d.js`](../simulador/escena3d.js) | Escena 3D (Three.js): formación, cemento, revestimiento, cañoneo, sarta BES con etapas, sello y motor visibles, flujo de partículas y gas |
 | [`simulador/modelo.js`](../simulador/modelo.js) | Modelo en JavaScript que usa el simulador |
 | [`modelo/recirculacion.py`](../modelo/recirculacion.py) | El mismo modelo en Python, para cálculos e ingeniería |
 | [`modelo/estudio_sensibilidad.py`](../modelo/estudio_sensibilidad.py) | Genera las figuras de este documento |
@@ -109,6 +110,8 @@ Las situaciones típicas en que el aporte natural no refrigera el motor son:
 | (d-1) Recirculación por derivación (orificio) | $q_r$ | Alta | Además pone la bomba en rango | Desperdicia altura de la bomba; reduce producción; calienta el lazo; erosión del orificio |
 | (d-2) Bomba de recirculación dedicada | $q_r$ | Alta | Recircula con muy poca potencia | Más equipo en el pozo; la bomba principal sigue viendo solo $q_p$ |
 
+**La holgura manda.** En un revestimiento de 5-1/2 in y 17 lb/ft (ID 4.892 in) con un motor de 4.50 in, la holgura radial es de 0.196 in: no cabe una camisa y la línea de recirculación tiene que ser un tubo aplanado. Una patente de recirculación describe exactamente ese caso: holgura de poco más de un cuarto de pulgada en 5-1/2 in y 17 lb/ft, y un tubo de perfil aplanado para pasar junto al motor. En la práctica de campo, un trabajo de SPE en un pozo de gas de Granite Wash (5-1/2 in, menos de 400 BPD de líquido, unos 10 000 ft) eligió recirculación en vez de camisa precisamente por la holgura, y la usó además para evitar bloqueo por gas ([SPE-141669](https://onepetro.org/SPEOKOG/proceedings-abstract/11POS/All-11POS/SPE-141669-MS/151081)). El caso base de este documento y del simulador está construido sobre ese tipo de pozo.
+
 En la variante **por derivación**, un puerto en la cabeza de descarga (o una herramienta en Y) envía una fracción del caudal bombeado por una línea delgada que baja por fuera de la bomba, del sello y del motor, y descarga por debajo del motor. Un orificio en la línea fija cuánto se recircula. En la variante **dedicada**, unas pocas etapas independientes, accionadas por el mismo eje, toman fluido en la admisión y lo empujan por la línea. Patentes como la [US 5,845,709 (bomba de recirculación para sistemas BES)](https://patents.google.com/patent/US5845709) y la [US 7,841,395 (BES con capacidad de recirculación)](https://image-ppubs.uspto.gov/dirsearch-public/print/downloadPdf/7841395) describen ambas arquitecturas. Una evaluación de campo reciente en pozos multizona del Permian comparó camisas y sistemas de recirculación y encontró mejor confiabilidad en la recirculación ([SWPSC 2026-009](https://www.swpshortcourse.org/conference/2026-swpsc/abstract/2026009-field-evaluation-esp-motor-cooling-technologies-deployed)).
 
 ---
@@ -203,7 +206,7 @@ Aparecen tres regímenes:
 | *Pump-off* | aun con $P_{adm} = P_{min}$ la bomba podría mover más | El pozo no aporta lo que la bomba maneja; nivel en la admisión, ingreso de gas o vapor, ciclos de paro |
 | Sin producción | $H(Q_b)$ no alcanza la columna ni con $q_p = 0$ | Con orificio, **todo el caudal recircula**: el lazo se calienta sin límite salvo por las pérdidas a la formación |
 
-> **Resultado clave de la hidráulica.** Con derivación por orificio, la recirculación **consume capacidad de la bomba**. Al recircular, el caudal por la bomba sube, la altura por etapa baja y la bomba ya no vence la misma columna con el mismo $q_p$. En el caso base la producción cae de 581 a 372 bpd (−36 %) al abrir un orificio de 0.18 in (figura 2). La bomba dedicada no tiene ese costo.
+> **Resultado clave de la hidráulica.** Con derivación por orificio, la recirculación **consume capacidad de la bomba**. Al recircular, el caudal por la bomba sube, la altura por etapa baja y la bomba ya no vence la misma columna con el mismo $q_p$. En el caso base la producción cae de 415 a 307 bpd (−26 %) al abrir la derivación (figura 2). La bomba dedicada no tiene ese costo, pero en un revestimiento estrecho tiene otro límite: unas pocas etapas dan poca presión y la línea aplanada es muy restrictiva (sección 10).
 
 ---
 
@@ -224,7 +227,7 @@ $$
 \Delta T_{bomba} = \frac{P_b}{\rho c_p Q_b} = \frac{g H\,(1 - \eta)}{\eta\,c_p}
 $$
 
-Para 3 344 ft (1 019 m) de altura, η = 61 % y $c_p$ = 3 500 J/kg·K: $\Delta T \approx 1.8$ K ≈ 3.2 °F. A caudales muy bajos η cae y el calentamiento por pasada crece mucho (sección 8).
+Para 3 755 ft (1 145 m) de altura, η = 64.7 % y $c_p$ ≈ 3 200 J/kg·K: $\Delta T \approx 1.9$ K ≈ 3.4 °F. A caudales muy bajos η cae y el calentamiento por pasada crece mucho (sección 8).
 
 ### 5.2 Ecuaciones de nodo
 
@@ -256,9 +259,9 @@ $$
 
 Todo el calor generado sale con la producción. El denominador es $q_p$, no $q_p + q_r$.
 
-**(ii) El calentamiento diverge cuando la producción tiende a cero.** Solo lo limita la conducción a la formación ($UA$). Con orificio y $J = 0.05$ bpd/psi, la producción cae a 54 bpd y la admisión sube 141 °F sobre el yacimiento; con $UA = 0$ subiría 180 °F y el devanado pasaría el límite (figura 1). Esta es la **fuga térmica** típica de un pozo que deja de aportar mientras la recirculación sigue funcionando.
+**(ii) El calentamiento diverge cuando la producción tiende a cero.** Solo lo limita la conducción a la formación ($UA$). Con derivación y $J = 0.07$ bpd/psi, la producción cae a 78 bpd y la admisión sube 64 °F sobre el yacimiento; con $UA = 0$ subiría 79 °F (figura 1). El motor sigue viendo 1.35 ft/s, así que el criterio de velocidad no avisa del problema. Esta es la **fuga térmica** típica de un pozo que deja de aportar mientras la recirculación sigue funcionando.
 
-**(iii) La recirculación por orificio cuesta calor, además de producción.** El término $P_v$ es la potencia hidráulica que la bomba invierte en el fluido recirculado. En el caso base son 14.2 kW, más que las pérdidas de la propia bomba (13.4 kW) y casi tres veces las del motor (5.2 kW). La bomba dedicada recircula más caudal con 0.5 kW.
+**(iii) La recirculación por orificio cuesta calor, además de producción.** El término $P_v$ es la potencia hidráulica que la bomba invierte en el fluido recirculado. En el caso base son 7.2 kW, tanto como las pérdidas de la propia bomba (7.2 kW) y más del doble que las del motor (3.2 kW). La bomba dedicada consume 2 kW.
 
 **(iv) En el sumidero el motor se refrigera con el fluido más caliente del lazo.** La admisión queda igual que en (5.2), pero el fluido que sube por el motor es el de la línea, que ya pasó por la bomba y el orificio:
 
@@ -266,7 +269,7 @@ $$
 T_{motor,ent} = T_r,\qquad T_{motor,sal} = T_r + \frac{P_m}{C\,q_r}
 $$
 
-Sobre los perforados, en cambio, el motor recibe la mezcla más fría del lazo. Con orificio en el sumidero, el fluido llega al motor a 228 °F cuando el yacimiento está a 200 °F.
+Sobre los perforados, en cambio, el motor recibe la mezcla más fría del lazo. Con derivación en el sumidero, el fluido llega al motor a 234 °F cuando el yacimiento está a 210 °F.
 
 **(v) La razón de recirculación amplifica el calor de la bomba.** El calor de bomba que entra a la admisión es $r P_b = \frac{R}{1+R} P_b$; con $R \gg 1$ prácticamente todo el calor de la bomba vuelve a la admisión.
 
@@ -293,7 +296,7 @@ D_h = D_{ext} - D_m,\qquad
 v_m = \frac{Q_{motor}}{A_{an}}
 $$
 
-$D_{ext}$ es el diámetro interno del revestimiento o de la camisa. Para un motor serie 562 (5.62 in) en revestimiento de 7 in, 26 lb/ft (ID 6.276 in): $A_{an} = 6.13$ in², $D_h = 0.656$ in, y **1 ft/s exige 655 bpd** pasando por el motor.
+$D_{ext}$ es el diámetro interno del revestimiento o de la camisa. Para el caso base, un motor de 4.50 in en revestimiento de 5-1/2 in, 17 lb/ft (ID 4.892 in): $A_{an} = 2.89$ in², $D_h = 0.392$ in, y **1 ft/s exige 309 bpd** pasando por el motor. Como referencia, un motor serie 562 (5.62 in) en 7 in, 26 lb/ft (ID 6.276 in) da $A_{an} = 6.13$ in² y necesita 655 bpd.
 
 ### 6.2 Coeficiente de película
 
@@ -342,7 +345,7 @@ $$
 \frac{\text{Vida}}{\text{Vida}_{lím}} = 2^{(T_{lím} - T_{dev})/10\,°\text{C}}
 $$
 
-Pasar de 223 °F (equipo convencional) a 356 °F de devanado (sumidero sin refrigeración) reduce la vida esperada unas 165 veces.
+Pasar de 236 °F (equipo convencional) a 441 °F de devanado (sumidero sin refrigeración) reduce la vida esperada unas 2 700 veces: en la práctica, el motor falla en días.
 
 ---
 
@@ -384,7 +387,7 @@ $$
 - Con $\varphi = 1$ (equilibrio instantáneo) la composición del lazo es la del yacimiento y la recirculación **no** diluye el gas.
 - Con $\varphi = 0$ (gas redisuelto que no se libera durante el tránsito) el GVF baja aproximadamente como $1/(1 + R)$.
 
-La realidad está en medio y depende de la cinética de liberación, el tiempo de residencia y si hay separador de gas. El simulador toma $\varphi = 0.3$ por defecto. Con orificio aparece además un efecto indirecto fuerte: como la producción cae, $P_{adm}$ sube (de 568 a 1 403 psi en el caso base) y hay mucho menos gas libre.
+La realidad está en medio y depende de la cinética de liberación, el tiempo de residencia y si hay separador de gas. El simulador toma $\varphi = 0.3$ por defecto. Con orificio aparece además un efecto indirecto fuerte: como la producción cae, $P_{adm}$ sube (de 1 079 a 1 532 psi en el caso base) y hay mucho menos gas libre.
 
 Valores de referencia del GVF que toleran las etapas, según el tipo de etapa: radiales del orden de 10 %, flujo mixto del orden de 20 a 25 %, etapas manejadoras de gas y helicoaxiales bastante más. Los límites reales dependen del fabricante y de la presión de admisión.
 
@@ -415,7 +418,7 @@ Cuanto mayor es $N_{ss}$ (ojo de impulsor grande, diseñado para NPSH bajo), má
 
 ### 8.3 Relación con la recirculación forzada
 
-La derivación por orificio es una forma de **mover el punto de operación hacia el BEP** cuando el pozo no aporta lo suficiente. En el caso base la bomba pasa de 0.63×BEP (empuje descendente, η = 56 %) a 1.24×BEP (dentro del rango, η = 61 %) (figura 3). La bomba dedicada no ayuda en esto: la bomba principal sigue en 0.63×BEP. En el caso de bajo aporte ($J$ = 0.1) con bomba dedicada, la principal queda en 0.15×BEP: profundamente en recirculación interna, con 41 °F de calentamiento por pasada. Ese calor sale por la tubería y no afecta al motor, pero sí afecta a la bomba.
+La derivación por orificio es una forma de **mover el punto de operación hacia el BEP** cuando el pozo no aporta lo suficiente. En el caso base la bomba pasa de 0.65×BEP (borde del empuje descendente, η = 57 %) a 1.06×BEP (dentro del rango, η = 65 %) (figura 3). La bomba dedicada no ayuda en esto: la bomba principal sigue en 0.65×BEP. En el caso de bajo aporte ($J$ = 0.07) con bomba dedicada, la principal queda en 0.15×BEP: profundamente en recirculación interna, con η = 17 % y 44 °F de calentamiento por pasada. Ese calor sale por la tubería y no afecta al motor, pero sí afecta a la bomba.
 
 ---
 
@@ -423,7 +426,7 @@ La derivación por orificio es una forma de **mover el punto de operación hacia
 
 | Fenómeno | Relación con la recirculación | Cómo estimarlo |
 |---|---|---|
-| **Erosión del orificio** | La velocidad en el orificio es enorme: 462 ft/s en el caso base (ΔP = 1 465 psi) | Comparar con la velocidad erosional de API RP 14E, $V_e = C/\sqrt{\rho}$ con C = 100 y ρ en lb/ft³ (~13 ft/s). Con arena, el orificio se agranda, la recirculación aumenta y la producción cae |
+| **Erosión del orificio** | La velocidad en el orificio es enorme: 81 ft/s con la línea de 0.30 in sin restricción y 279 ft/s con un orificio de 0.15 in (ΔP ≈ 1 500 psi) | Comparar con la velocidad erosional de API RP 14E, $V_e = C/\sqrt{\rho}$ con C = 100 y ρ en lb/ft³ (~13 ft/s). Con arena, el orificio se agranda, la recirculación aumenta y la producción cae |
 | **Desgaste abrasivo de la bomba** | En estado estacionario la concentración de sólidos en el lazo es la del yacimiento, pero el caudal por la bomba es $Q_b$ | Desgaste relativo ∝ $Q_b/q_p = 1 + R$ (orificio) |
 | **Incrustaciones** | El carbonato de calcio tiene solubilidad inversa con la temperatura; el calentamiento del lazo y del motor favorece la precipitación sobre la carcasa | Índice de saturación (Langelier o Stiff–Davis) a la temperatura de piel del motor, no a la del yacimiento |
 | **Emulsiones** | El estrangulamiento en el orificio es una zona de alto esfuerzo cortante que emulsiona; la viscosidad aparente puede subir | Modelo de Brinkman $\mu = \mu_c(1 - \phi_d)^{-2.5}$ con punto de inversión |
@@ -436,7 +439,7 @@ La derivación por orificio es una forma de **mover el punto de operación hacia
 
 ## 10. Resultados de simulación
 
-Caso base (parámetros por defecto del simulador): perforados a 6 000 ft, presión de yacimiento 2 200 psi, $J$ = 0.45 bpd/psi, 200 °F, RGA 250 scf/stb, 22 °API, 70 % de agua; revestimiento de 7 in, motor serie 562 de 90 hp y 20 ft; bomba de 180 etapas con BEP de 1 000 bpd a 60 Hz operando a 55 Hz; equipo 200 ft bajo los perforados.
+**Caso base** (parámetros por defecto del simulador): pozo de baja tasa y alta RGA. Perforados a 7 000 ft, presión de yacimiento 2 400 psi, $J$ = 0.35 bpd/psi, 210 °F, RGA 500 scf/stb, crudo de 40 °API con 50 % de agua ($P_b$ = 1 947 psi por Standing, aporte máximo 537 bpd). Revestimiento de 5-1/2 in, 17 lb/ft; tubería de 2-7/8 in; motor de 4.50 in, 60 hp, 1 100 V y 25 ft; bomba de 4.00 in con 280 etapas de 700 bpd (BEP a 60 Hz) operando a 55 Hz; equipo 150 ft bajo los perforados. Línea de recirculación aplanada con diámetro equivalente de 0.30 in.
 
 ### 10.1 Comparación de configuraciones
 
@@ -444,29 +447,31 @@ Caso base (parámetros por defecto del simulador): perforados a 6 000 ft, presi�
 
 | Configuración | $q_p$ [bpd] | $q_r$ [bpd] | $v_m$ [ft/s] | $T_{adm}$ [°F] | $T_{dev}$ [°F] | GVF [%] | $Q_b/Q_{BEP}$ |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| Sobre perforados, sin recirculación | 581 | 0 | 0.89 | 202 | 223 | 23.4 | 0.63 |
-| Sumidero sin recirculación | 581 | 0 | 0.00 | 202 | **356** | 15.8 | 0.63 |
-| Camisa, motor 456 (30 ft) | 581 | 0 | 0.71 | 202 | 223 | 19.4 | 0.63 |
-| Sumidero + orificio 0.18 in | **372** | 766 | 1.17 | 220 | 253 | 1.3 | 1.24 |
-| Sumidero + bomba dedicada (3 etapas) | 581 | 833 | 1.27 | 202 | **225** | 10.0 | 0.63 |
+| Sobre perforados, sin recirculación | 415 | 0 | 1.34 | 212 | 236 | **20.1** | 0.65 |
+| Sumidero sin recirculación | 415 | 0 | 0.00 | 212 | **441** | 16.5 | 0.65 |
+| Camisa con motor de 3.75 in | 415 | 0 | 1.60 | 212 | 233 | 22.3 | 0.65 |
+| Sumidero + derivación desde la descarga | **307** | 374 | 1.21 | 224 | 261 | 3.9 | 1.06 |
+| Sumidero + bomba dedicada (40 etapas) | 415 | 165 | **0.53** | 214 | 250 | 13.8 | 0.65 |
 
 Lectura:
 
-- En el sumidero sin refrigeración el devanado sube 133 °F respecto a la opción convencional.
-- La recirculación por orificio refrigera el motor y pone la bomba en rango, pero pierde un 36 % de producción, calienta la admisión 18 °F y destruye 14 kW en el orificio.
-- La bomba dedicada consigue el mejor compromiso: refrigera igual o mejor, no pierde producción y gasta 0.5 kW. A cambio, la bomba principal queda en empuje descendente: habría que redimensionarla (menos etapas o menor BEP) o bajar la frecuencia.
+- **Sobre los perforados** el motor se refrigera bien, pero entra un 20 % de gas a la bomba, por encima de lo que toleran las etapas: es el motivo para bajar el equipo.
+- **En el sumidero sin refrigeración** el devanado pasa el límite de 400 °F. No es una opción.
+- **La camisa** resolvería ambas cosas, pero en 5-1/2 in solo cabe con un motor de 3.75 in, y además su separación natural es peor (el líquido baja por fuera de la camisa a más velocidad).
+- **La derivación desde la descarga** refrigera el motor (1.21 ft/s), deja el gas en 3.9 % y pone la bomba en 1.06×BEP. El costo es un 26 % de producción, 7.2 kW de calor en el lazo y 12 °F más en la admisión.
+- **La bomba dedicada** no pierde producción, pero con una línea aplanada tan estrecha mover el caudal necesario cuesta varios cientos de psi, y 40 etapas pequeñas solo consiguen 165 bpd (0.53 ft/s). Con una línea de 0.40 in equivalentes llegaría a 331 bpd (1.07 ft/s). En revestimientos estrechos, la derivación desde la descarga tiene la ventaja de disponer de toda la presión de la bomba principal.
 
 ### 10.2 Efecto del aporte del yacimiento
 
 ![Aporte vs temperatura](img/01_aporte_vs_temperatura.png)
 
-Con orificio, el calentamiento de la admisión crece como $1/q_p$ al caer el aporte, como predice la ecuación del balance. Con bomba dedicada el calor recirculado es tan pequeño que el efecto casi desaparece. Por eso, en un pozo con aporte declinante, un sistema por orificio diseñado para el aporte inicial puede terminar en fuga térmica.
+Con derivación, el calentamiento de la admisión crece como $1/q_p$ al caer el aporte, como predice la ecuación del balance. Con bomba dedicada el calor recirculado es pequeño y el efecto casi desaparece. Por eso, en un pozo con aporte declinante, un sistema por derivación diseñado para el aporte inicial puede terminar en fuga térmica sin que la velocidad en el motor lo delate.
 
 ### 10.3 Dimensionamiento del orificio
 
 ![Orificio](img/02_orificio.png)
 
-Existe una ventana estrecha: por debajo de ~0.165 in el motor no alcanza 1 ft/s; por encima de ~0.18 in la bomba sale del rango por empuje ascendente y la producción cae rápido. A partir de ~0.30 in prácticamente todo el caudal recircula. Una erosión del orificio de 0.16 a 0.22 in, plausible con arena, reduce la producción de ~420 a ~260 bpd.
+Con la línea de 0.30 in, por debajo de ~0.14 in de orificio el motor no alcanza 1 ft/s. Por encima de ~0.2 in el orificio deja de controlar: la propia línea aplanada es la restricción dominante. Toda la ventana útil queda dentro del rango de la bomba, porque la línea limita la recirculación a unos 370 bpd. Con una línea más grande (0.40 in) la recirculación sube a 680 bpd, la producción cae a 180 bpd y la bomba pasa a empuje ascendente: la línea también es un parámetro de diseño.
 
 ### 10.4 Punto de operación de la bomba
 
@@ -476,15 +481,16 @@ Existe una ventana estrecha: por debajo de ~0.165 in el motor no alcanza 1 ft/s;
 
 ![Película](img/04_pelicula.png)
 
-### 10.6 Crudo pesado
+### 10.6 Crudo pesado en 7 in
 
-| Caso (12 °API, 15 % agua, 150 °F, μ ≈ 88 cP) | $q_p$ | $v_m$ | $h$ [W/m²K] | $T_{adm}$ | $T_{dev}$ |
-|---|---:|---:|---:|---:|---:|
-| Sobre perforados | 695 | 1.06 | 118 | 153 | 198 |
-| Sumidero + bomba dedicada | 694 | 0.84 | 113 | 153 | 204 |
-| Sumidero sin recirculación | 694 | 0.00 | 165 | 153 | **394** |
+Escenario del simulador "Crudo pesado en 7 in": 13 °API, 20 % de agua, 160 °F, motor serie 562 (5.62 in) de 90 hp, 150 etapas de 1 000 bpd.
 
-Con crudo, el salto entre la admisión y el devanado es de 45 a 50 °F aun cumpliendo la regla de 1 ft/s, frente a 20 a 25 °F con agua. El régimen es laminar ($Re$ ≈ 55 a 60) y el margen depende casi solo del calentamiento del fluido a lo largo del motor.
+| Caso (μ ≈ 90 cP a condiciones de fondo) | $q_p$ | $v_m$ | $h$ [W/m²K] | Re | $T_{adm}$ | $T_{dev}$ |
+|---|---:|---:|---:|---:|---:|---:|
+| Sobre perforados | 472 | 0.72 | 116 | 58 | 163 | 200 |
+| Sumidero sin recirculación | 472 | 0.00 | 157 | 0 | 163 | **360** |
+
+Con crudo, el salto entre la admisión y el devanado es de unos 37 °F con flujo laminar ($Re$ ≈ 60), frente a unos 24 °F con agua en el caso base. En laminar, el margen depende casi solo del calentamiento del fluido a lo largo del motor, y por eso los estudios para crudo pesado piden velocidades de 2.6 a 2.8 ft/s.
 
 ---
 
@@ -494,7 +500,7 @@ Con crudo, el salto entre la admisión y el devanado es de 45 a 50 °F aun cumpl
 2. **Decidir la posición del equipo.** Si el gas libre en la admisión sobre los perforados supera lo que tolera la bomba, considerar el sumidero (separación natural) y por lo tanto un sistema de refrigeración.
 3. **Calcular la velocidad en el motor** con el caudal real que lo atraviesa en cada configuración. Objetivo de 1 ft/s con agua y de 2 a 3 ft/s con crudo viscoso.
 4. **Elegir el tipo de recirculación:**
-   - Bomba **dedicada** si el objetivo es solo refrigerar: dimensionar sus etapas para que $q_r \ge v_{obj}\,A_{an}$ contra la pérdida de la línea.
+   - Bomba **dedicada** si el objetivo es solo refrigerar y hay holgura para una línea de sección suficiente: dimensionar sus etapas para que $q_r \ge v_{obj}\,A_{an}$ contra la pérdida de la línea. En revestimientos estrechos la línea aplanada es tan restrictiva que la presión de unas pocas etapas no alcanza.
    - **Orificio** si además hay que sacar la bomba principal del empuje descendente y se acepta perder producción y calentar el lazo. Verificar la producción resultante con las ecuaciones (1) y (2) y no solo con la curva de la bomba.
 5. **Verificar el balance térmico** con la ecuación del lazo (sección 5.2) para el **mínimo** $q_p$ esperado, no para el de diseño. Comprobar que $T_{dev}$ queda bajo el límite del aislamiento con margen.
 6. **Verificar el gas** a la temperatura de admisión calentada.
@@ -551,6 +557,8 @@ Reglas rápidas útiles:
 
 - [US 5,845,709 – Recirculating pump for electrical submersible pump system](https://patents.google.com/patent/US5845709)
 - [US 7,841,395 – Electric submersible pump (ESP) with recirculation capability](https://image-ppubs.uspto.gov/dirsearch-public/print/downloadPdf/7841395)
+- [SPE-141669 – ESP Recirculation System Solves Production Issue in Granite Wash Gas Well](https://onepetro.org/SPEOKOG/proceedings-abstract/11POS/All-11POS/SPE-141669-MS/151081)
+- [ESP motor shroud: aplicaciones y criterios de selección (production-technology.org)](https://production-technology.org/esp-motor-shroud/)
 - [SWPSC 2026-009 – Field evaluation of ESP motor cooling technologies deployed in multizone Permian wells](https://www.swpshortcourse.org/conference/2026-swpsc/abstract/2026009-field-evaluation-esp-motor-cooling-technologies-deployed)
 - [Parametric Study of Motor/Shroud Heat Transfer Performance in an ESP (Missouri S&T)](https://scholarsmine.mst.edu/mec_aereng_facwork/1770)
 - [Suction parameters relating NPSH issues (Pumps & Systems)](https://pumpsandsystems.com/suction-parameters-relating-npsh-issues)

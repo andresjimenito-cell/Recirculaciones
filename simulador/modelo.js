@@ -26,24 +26,27 @@
   const F2C = (t) => (t - 32) / 1.8;
   const C2F = (t) => t * 1.8 + 32;
 
+  // Caso base: pozo de baja tasa y alta RGA en revestimiento de 5-1/2 in, 17 lb/ft,
+  // con el equipo en el sumidero para separar gas (ver docs, sección 10).
   const DEFAULTS = {
     config: 'sumidero',      // 'sobre' | 'sumidero' | 'camisa'
     recirc: 'orificio',      // 'ninguna' | 'orificio' | 'dedicada'
     // Pozo
-    D_perf: 6000, D_bomba: 6200, casing_id: 6.276, tubing_id: 2.992,
-    motor_od: 5.62, motor_len: 20, shroud_id: 6.0, P_wh: 150,
+    D_perf: 7000, D_bomba: 7150, casing_id: 4.892, tubing_id: 2.441,
+    motor_od: 4.50, pump_od: 4.00, motor_len: 25, shroud_id: 4.142, P_wh: 150,
     // Yacimiento
-    Pr: 2200, J: 0.45, T_res: 200, GOR: 250, gamma_g: 0.75,
+    Pr: 2400, J: 0.35, T_res: 210, GOR: 500, gamma_g: 0.75,
     // Fluido
-    API: 22, WC: 0.7, SG_w: 1.05, WC_inv: 0.5,
+    API: 40, WC: 0.5, SG_w: 1.05, WC_inv: 0.5,
     // Bomba principal (curva por etapa a 60 Hz)
-    N_etapas: 180, Q_bep: 1000, H0: 40, eta_bep: 0.65, freq: 55,
+    N_etapas: 280, Q_bep: 700, H0: 24, eta_bep: 0.65, freq: 55,
     ROR_min: 0.65, ROR_max: 1.25, x_onset: 0.6,
     // Motor
-    HP_nom: 90, eta_motor: 0.86, k0: 0.3, dT_int: 40, T_lim: 400, kg_por_hp: 15,
-    // Recirculación
-    rec_id: 1.0, rec_len: 80, orif_d: 0.18, Cd: 0.61, K_menores: 1.5,
-    Nr_etapas: 3, Qr_bep: 700, H0r: 40, eta_r: 0.55,
+    HP_nom: 60, eta_motor: 0.86, k0: 0.3, dT_int: 40, T_lim: 400, kg_por_hp: 15,
+    V_nom: 1100, FP: 0.82,
+    // Recirculación (tubo aplanado: rec_id es el diámetro equivalente de flujo)
+    rec_id: 0.30, rec_len: 70, orif_d: 0.30, Cd: 0.61, K_menores: 1.5,
+    Nr_etapas: 40, Qr_bep: 500, H0r: 24, eta_r: 0.55,
     // Térmico / gas
     UA: 100, v_nat: 0.015, phi: 0.3, v_b: 0.5, GVF_lim: 0.15, P_in_min: 50, z: 0.9,
   };
@@ -261,7 +264,8 @@
     const Bg = (0.00504 * p.z * (th.T_in_F + 460)) / Math.max(Pin_psia, 14.7); // bbl/scf
     const qg_libre = libre_scf * Bg;                                           // bbl/d
     // separación natural: E = v_b / (v_b + v_l)
-    const casA = (Math.PI / 4) * (p.casing_id * p.casing_id - p.motor_od * p.motor_od) * IN * IN;
+    // área anular alrededor de la bomba/admisión, por donde pasa el líquido que la burbuja debe vencer
+    const casA = (Math.PI / 4) * (p.casing_id * p.casing_id - p.pump_od * p.pump_od) * IN * IN;
     let v_l;
     if (p.config === 'sobre') v_l = (hy.qp + hy.qr) / casA;
     else if (p.config === 'sumidero') v_l = hy.qp / casA;
@@ -337,6 +341,10 @@
     const L = P_shaft / HP_av;
     const Pm_rated = p.HP_nom * s * HP * (1 / p.eta_motor - 1);
     const P_m = Pm_rated * (p.k0 + (1 - p.k0) * L * L);
+    // Corriente de línea con V/Hz constante
+    const V_mot = p.V_nom * s;
+    const I_mot = (P_shaft + P_m) / (Math.sqrt(3) * V_mot * p.FP);
+    const I_nom = (p.HP_nom * HP / p.eta_motor) / (Math.sqrt(3) * p.V_nom * p.FP);
 
     // Balance de energía en el lazo (ver docs, sección 5)
     const r_m = p.recirc === 'orificio' && Qm > Q_EPS ? qr / Qm : 0;
@@ -385,6 +393,7 @@
       P_p_kW: P_p / 1e3, P_v_kW: P_v / 1e3, P_rs_kW: P_rs / 1e3, P_m_kW: P_m / 1e3,
       Psh_main_kW: Psh_main / 1e3, Phyd_main_kW: Phyd_main / 1e3, P_shaft_hp: P_shaft / HP,
       L, eta_pump: hy.main.eta(Qm), Q_calor_kW: Q_calor / 1e3,
+      V_mot, I_mot, I_nom, P_elec_kW: (P_shaft + P_m) / 1e3,
       T_res_F: p.T_res, T_in_F: C2F(T_in), T_dis_F: C2F(T_dis), T_r_F: C2F(T_r),
       T_mi_F: C2F(T_mi), T_mo_F: C2F(T_mo), T_skin_F: C2F(T_skin), T_wind_F: C2F(T_wind),
       dT_in_F: dT_in * 1.8, v_motor_fts: v_mot / FT, v_motor_ms: v_mot,

@@ -16,18 +16,19 @@ from recirculacion import simular  # noqa: E402
 CASOS = [
     {},
     {"recirc": "ninguna"},
-    {"recirc": "dedicada", "orif_d": 0.75},
-    {"config": "sobre", "D_bomba": 5800, "recirc": "ninguna"},
-    {"config": "sobre", "D_bomba": 5800},
-    {"config": "camisa", "recirc": "ninguna"},
-    {"API": 12, "WC": 0.2, "recirc": "dedicada", "orif_d": 0.75},
+    {"recirc": "dedicada"},
+    {"config": "sobre", "D_bomba": 6850, "recirc": "ninguna"},
+    {"config": "sobre", "D_bomba": 6850},
+    {"config": "camisa", "recirc": "ninguna", "motor_od": 3.75, "motor_len": 35},
+    {"API": 12, "WC": 0.2, "recirc": "dedicada"},
     {"J": 0.05},
     {"J": 0.15, "freq": 60},
     {"GOR": 600, "Pr": 1800},
     {"N_etapas": 60},
 ]
 CLAVES = ["qp_bpd", "qr_bpd", "Pin_psi", "Pwf_psi", "x", "T_in_F", "T_dis_F", "T_r_F",
-          "T_mo_F", "T_skin_F", "T_wind_F", "v_motor_fts", "GVF", "L", "P_m_kW", "P_p_kW", "P_v_kW"]
+          "T_mo_F", "T_skin_F", "T_wind_F", "v_motor_fts", "GVF", "L", "P_m_kW", "P_p_kW", "P_v_kW",
+          "I_mot", "V_mot"]
 
 js = r"""
 const M = require(process.argv[1]);

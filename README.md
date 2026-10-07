@@ -7,15 +7,17 @@ Investigación y simulación de los sistemas de recirculación usados en pozos c
 | Ruta | Qué es |
 |---|---|
 | `docs/investigacion_recirculaciones.md` | Documento técnico completo: ecuaciones, derivaciones, fenómenos, resultados y procedimiento de diseño |
-| `simulador/index.html` | Simulador visual interactivo: pozo animado, curva de la bomba, perfil térmico, tendencias y sensibilidad |
+| `simulador/index.html` | Simulador interactivo: pozo 3D en corte, recorrido guiado de 9 pasos, diagnóstico con recomendaciones, curva de la bomba, perfil térmico, tendencias y sensibilidad |
+| `simulador/escena3d.js` | Escena 3D (Three.js r128): formación, cemento, revestimiento, cañoneo, bomba con etapas, sello, motor con estator y rotor, cable, línea de recirculación y flujo de partículas y gas |
 | `simulador/modelo.js` | Modelo físico en JavaScript (lo usa el simulador; también corre en Node) |
+| `simulador/vendor/` | Copia local de Three.js (licencia MIT) para usar el simulador sin internet |
 | `modelo/recirculacion.py` | El mismo modelo en Python para cálculos de ingeniería |
 | `modelo/estudio_sensibilidad.py` | Genera las figuras de `docs/img/` |
 | `herramientas/verificar_js_py.py` | Verifica que el modelo JS y el de Python den resultados idénticos |
 
 ## Uso rápido
 
-Simulador: abrir `simulador/index.html` en el navegador (no requiere servidor ni instalación).
+Simulador: abrir `simulador/index.html` en el navegador (no requiere servidor ni instalación; necesita WebGL). Arrastra para girar el pozo, rueda para acercar, clic en un componente para ver su explicación.
 
 Modelo en Python (solo biblioteca estándar):
 
@@ -32,6 +34,10 @@ Figuras (requiere `numpy` y `matplotlib`) y verificación cruzada (requiere `nod
 python3 modelo/estudio_sensibilidad.py
 python3 herramientas/verificar_js_py.py
 ```
+
+## Caso base
+
+Pozo de baja tasa y alta RGA en revestimiento de 5-1/2 in, 17 lb/ft, con el equipo 150 ft bajo los perforados para separar gas. La holgura motor–revestimiento es de 0.196 in: no cabe una camisa y la línea de recirculación es un tubo aplanado. Es el tipo de pozo en que la industria usa recirculación (ver docs, secciones 3 y 10).
 
 ## Configuraciones que modela
 

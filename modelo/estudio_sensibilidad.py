@@ -44,8 +44,8 @@ def guardar(fig, nombre):
 def fig_aporte():
     J = np.linspace(0.04, 1.0, 50)
     casos = [("Sumidero + orificio", dict(), S1),
-             ("Sumidero + bomba dedicada", dict(recirc="dedicada", orif_d=0.75), S2),
-             ("Sobre perforados, sin recirculación", dict(config="sobre", D_bomba=5800, recirc="ninguna"), S3)]
+             ("Sumidero + bomba dedicada", dict(recirc="dedicada"), S2),
+             ("Sobre perforados, sin recirculación", dict(config="sobre", D_bomba=6850, recirc="ninguna"), S3)]
     fig, ax = plt.subplots(1, 3, figsize=(12, 3.6))
     for nombre, kw, c in casos:
         r = [simular(J=j, **kw) for j in J]
@@ -85,7 +85,7 @@ def fig_orificio():
 def fig_curva():
     base = simular(recirc="ninguna")
     rec = simular()
-    b = Bomba(180, 1000, 40, 0.65, 55)
+    b = Bomba(280, 700, 24, 0.65, 55)
     Q = np.linspace(0, 1.9 * b.Qb, 200)
     fig, ax = plt.subplots(1, 2, figsize=(10, 3.8))
     ax[0].plot(Q / BPD, [b.head(q) / FT for q in Q], color=S1, label="Curva H–Q de la sarta (55 Hz)")
@@ -107,10 +107,10 @@ def fig_curva():
 # 4. Coeficiente de película y calentamiento del motor vs velocidad ------------------
 def fig_pelicula():
     v = np.linspace(0.05, 4, 120) * FT
-    Dh = (6.276 - 5.62) * IN
-    A_ann = np.pi / 4 * (6.276 ** 2 - 5.62 ** 2) * IN * IN
-    A = np.pi * 5.62 * IN * 20 * FT
-    P_m = 5000.0
+    Dh = (4.892 - 4.50) * IN
+    A_ann = np.pi / 4 * (4.892 ** 2 - 4.50 ** 2) * IN * IN
+    A = np.pi * 4.50 * IN * 25 * FT
+    P_m = 3000.0
     fig, ax = plt.subplots(1, 3, figsize=(13, 3.7))
     for (nombre, kw, T), c in zip([("Agua 90 %, 220 °F", dict(API=22, WC=0.9), 220),
                                    ("22 °API, 30 % agua, 220 °F", dict(API=22, WC=0.3), 220),
@@ -118,7 +118,7 @@ def fig_pelicula():
                                    ("10 °API, 10 % agua, 140 °F", dict(API=10, WC=0.1), 140)], [S1, S2, S3, S4]):
         p = dict(DEFAULTS, **kw)
         fl = props(p, T)
-        res = [coef_pelicula(fl, vv, Dh, 20 * FT, P_m / A) for vv in v]
+        res = [coef_pelicula(fl, vv, Dh, 25 * FT, P_m / A) for vv in v]
         film = np.array([x["dT"] * 1.8 for x in res])
         bulk = P_m / (fl["C"] * v * A_ann) * 1.8
         ax[0].plot(v / FT, [x["h"] for x in res], color=c, label=f"{nombre} (μ={fl['mu_cP']:.1f} cP)")
@@ -140,14 +140,14 @@ def fig_pelicula():
 
 # 5. Comparación de configuraciones --------------------------------------------------
 def fig_config():
-    casos = [("Sobre perf.\nsin recirc.", dict(config="sobre", D_bomba=5800, recirc="ninguna")),
+    casos = [("Sobre\nperforados", dict(config="sobre", D_bomba=6850, recirc="ninguna")),
              ("Sumidero\nsin recirc.", dict(recirc="ninguna")),
-             ("Sumidero\n+ camisa", dict(config="camisa", recirc="ninguna")),
+             ("Camisa\n(motor 3.75)", dict(config="camisa", recirc="ninguna", motor_od=3.75, pump_od=3.38, motor_len=35)),
              ("Sumidero\n+ orificio", dict()),
-             ("Sumidero\n+ bomba dedic.", dict(recirc="dedicada", orif_d=0.75))]
+             ("Sumidero\n+ dedicada", dict(recirc="dedicada"))]
     r = [simular(**kw) for _, kw in casos]
     et = [n for n, _ in casos]
-    fig, ax = plt.subplots(1, 3, figsize=(12, 3.8))
+    fig, ax = plt.subplots(1, 3, figsize=(13.5, 3.9))
     for a, k, t, u in [(ax[0], "qp_bpd", "Producción", "bpd"),
                        (ax[1], "T_wind_F", "Temperatura de devanado", "°F"),
                        (ax[2], "GVF", "Fracción de gas en la admisión", "%")]:
